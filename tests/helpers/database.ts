@@ -22,6 +22,11 @@ export async function testDatabase(migrations=['001_projects.sql','002_contact_f
   async function project(complete=false) {
     await role('anon');const id=randomUUID(),token=randomBytes(32).toString('hex');
     const answers={...initialAnswers,artist_name:'Teste',whatsapp:'11999999999',consent:true,genre:'Rap',arrangement:'solo',services:['mixing'],no_references:true,needs_guidance:true,deadline:'Sem prazo definido'};
+    if(migrations.includes('008_submission_privacy.sql')){
+      if(!complete)throw new Error('O novo fluxo não cria pedidos incompletos. Use fixture administrativa para dados legados.');
+      await db.query('select public.submit_project($1,$2,$3::jsonb,false)',[id,token,JSON.stringify(answers)]);
+      await role('producer');return {id,token,answers};
+    }
     for(let s=1;s<=(complete?4:1);s++)await db.query('select public.save_project($1,$2,$3,$4::jsonb)',[id,token,s,JSON.stringify(answers)]);
     await role('producer');return {id,token,answers};
   }

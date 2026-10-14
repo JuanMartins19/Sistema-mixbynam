@@ -23,15 +23,16 @@ test('integração em Supabase separado: API, concorrência e autorização',asy
   const id=randomUUID(),id2=randomUUID(),token=randomBytes(32).toString('hex');
   const answers={...initialAnswers,artist_name:`TESTE-MVP-${id}`,whatsapp:'11999999999',consent:true,genre:'Rap',arrangement:'solo',services:['beat'],beat_type:'custom',no_references:true,needs_guidance:true,deadline:'Sem prazo definido'};
   async function save(step:number,projectId=id) {
-    const {data,error}=await anon.rpc('save_project',{p_id:projectId,p_token:token,p_step:step,p_answers:answers});assert.equal(error,null);assert.ok(data);return data as Project;
+    const {data,error}=await anon.rpc('submit_project',{p_id:projectId,p_token:token,p_answers:answers,p_marketing:projectId===id});assert.equal(error,null);assert.ok(data);return data as Project;
   }
   try {
     await t.test('cliques e tentativas concorrentes geram só um registro',async()=>{
       const results=await Promise.all(Array.from({length:8},()=>save(1)));
       assert.equal(new Set(results.map(p=>p.public_id)).size,1);
       const {data,error}=await producer.from('projects').select('*').eq('id',id);assert.equal(error,null);assert.equal(data?.length,1);
-      assert.equal(data![0].status,'incomplete');assert.equal(data![0].answers.whatsapp,answers.whatsapp);
+      assert.equal(data![0].status,'completed');assert.equal(data![0].answers.whatsapp,answers.whatsapp);
     });
+    await t.test('coleta parcial antiga bloqueada e revogação preservada',async()=>{const old=await anon.rpc('save_project',{p_id:randomUUID(),p_token:token,p_step:1,p_answers:answers});assert.ok(old.error);const revoked=await anon.rpc('revoke_project_marketing',{p_id:id,p_token:token});assert.equal(revoked.error,null);const retry=await save(4);assert.equal(retry.marketing_allowed,false);});
     await t.test('retomada exige chave correta',async()=>{
       const {data,error}=await anon.rpc('resume_project',{p_id:id,p_token:token});assert.equal(error,null);assert.equal(data.answers.artist_name,answers.artist_name);
       const bad=await anon.rpc('resume_project',{p_id:id,p_token:'0'.repeat(64)});assert.ok(bad.error);assert.equal(bad.data,null);
@@ -41,7 +42,7 @@ test('integração em Supabase separado: API, concorrência e autorização',asy
       const retries=await Promise.all([save(4),save(4)]);assert.ok(retries.every(r=>r.public_id===p.public_id && r.completed_at===p.completed_at));
     });
     await t.test('outro projeto com o mesmo telefone permanece separado',async()=>{
-      const p=await save(1,id2);assert.equal(p.status,'incomplete');assert.equal(p.id,id2);
+      const p=await save(1,id2);assert.equal(p.status,'completed');assert.equal(p.id,id2);
       const {data,error}=await producer.from('projects').select('id').in('id',[id,id2]);assert.equal(error,null);assert.equal(data?.length,2);
     });
     await t.test('acesso público e usuário não autorizado são bloqueados',async()=>{

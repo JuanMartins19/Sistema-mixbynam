@@ -20,7 +20,7 @@ export const recoveryLabels = {
 };
 export function artistWhatsappLink(phone:string,publicId:string,artist:string,producer:string) {
   let digits=phone.replace(/\D/g,'');
-  if(digits.length===10 || digits.length===11) digits='55'+digits;
-  if(!/^[1-9]\d{9,14}$/.test(digits)) return null;
+  if(!phone.startsWith('+')&&(digits.length===10 || digits.length===11)) digits='55'+digits;
+  if(!/^[1-9]\d{1,14}$/.test(digits)) return null;
   return `https://wa.me/${digits}?text=${encodeURIComponent(`Olá, ${artist}! Aqui é ${producer}. Vamos conversar sobre seu projeto musical ${publicId}?`)}`;
 }

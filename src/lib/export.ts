@@ -15,7 +15,7 @@ export function csvCell(value: unknown) {
   return `"${text.replace(/"/g,'""')}"`;
 }
 export function projectsCsv(projects: Project[]) {
-  const columns = ['public_id','created_at','updated_at','status','progress','completed_at','consent_at','consent_version','consent_text','artist_name','whatsapp','email','genre','arrangement','arrangement_other','services','beat_type','references','no_references','notes','budget','needs_guidance','deadline'];
+  const columns = ['public_id','created_at','updated_at','status','progress','completed_at','consent_at','consent_version','consent_text','privacy_notice_version','privacy_notice_at','marketing_allowed','marketing_choice_at','marketing_consent_at','marketing_consent_version','marketing_consent_text','marketing_revoked_at','artist_name','whatsapp','email','genre','arrangement','arrangement_other','services','beat_type','references','no_references','notes','budget','needs_guidance','deadline'];
   return '\uFEFF' + [columns.map(csvCell).join(';'),...projects.map(p => {
     const row: Record<string,unknown> = {...p,...p.answers};
     return columns.map(c=>csvCell(row[c])).join(';');

@@ -9,6 +9,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return <html lang="pt-BR"><body><ProducerHeaderProvider>
     <header className="site-header"><Link href="/" className="brand" aria-label="Mixbynam, início"><span className="brand-mark">m<span>↗</span></span>mixbynam<span className="brand-dot">®</span></Link><span className="header-tag">PRODUÇÃO MUSICAL INDEPENDENTE</span><ProducerHeaderAction /></header>
     {children}
-    <footer><span>mixbynam · Da ideia ao último detalhe.</span><span>Feito para dar voz ao seu som.</span></footer>
+    <footer><span>mixbynam · Da ideia ao último detalhe.</span><Link href="/privacidade">Política de Privacidade</Link><span>Feito para dar voz ao seu som.</span></footer>
   </ProducerHeaderProvider></body></html>;
 }

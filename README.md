@@ -1,12 +1,12 @@
-﻿# Mixbynam — formulário, contatos, agenda e financeiro
+# Mixbynam — formulário, contatos, agenda e financeiro
 
 Next.js + TypeScript + Supabase Free, preparado para Netlify Free e subdomínio `nome-do-site.netlify.app`. O artista não cria conta. O produtor master é previamente cadastrado. Pagamentos são externos e conferidos manualmente; o site não envia mensagens, não processa pagamentos e não recebe áudio.
 
 ## Funcionalidades
 
 - Formulário em quatro etapas, com introdução curta no celular, perguntas diretas e ações Continuar / Enviar pedido.
-- Nome artístico e WhatsApp no início; e-mail opcional. Autorização explícita para atender inclusive pedidos incompletos, com texto, versão e horário registrados.
-- Salvamento no Supabase a cada avanço, mesmo UUID nas tentativas, respostas preservadas ao voltar ou após erro. Identificação por projeto, sem mesclar telefones iguais. Confirmação somente após conclusão confirmada pelo banco.
+- Nome artístico e WhatsApp no início; e-mail opcional. Aviso informativo de atendimento e link à Política de Privacidade; publicidade opcional e desmarcada por padrão.
+- Respostas apenas na memória durante as quatro etapas. Uma transação no Supabase ao clicar Enviar pedido; mesmo UUID nas tentativas, sem duplicação nem mescla por telefone. Confirmação somente após conclusão confirmada pelo banco.
 - Confirmação orienta sobre análise e contato do produtor. WhatsApp abre mensagem preenchida; o artista precisa enviá-la. Resumo e identificador ficam em uma seção expansível.
 - Painel privado: Contatos, Agenda e Financeiro. Cartões de contatos no celular e desktop, com artista, serviços, situação comercial e próximo retorno. Respostas, autorização e identificador ficam no atendimento.
 - Histórico de atendimento paginado, notas internas e confirmação manual de contato. Abrir WhatsApp não registra contato nem envio.
@@ -15,6 +15,16 @@ Next.js + TypeScript + Supabase Free, preparado para Netlify Free e subdomínio 
 - JSON v3 exporta dados da aplicação; CSV mantém respostas dos pedidos. Sem metas, projeções ou indicadores inventados.
 
 ## Configuração local
+
+### Revisão de privacidade
+
+Esta revisão substitui o salvamento parcial pedido na primeira etapa do MVP: **não há mais captação de dados antes de Enviar pedido**. Não reaplique migrações antigas. Aplique 008 e atualize a interface juntos; clientes antigos que tentem save_project recebem erro de permissão. O envio usa submit_project, valida todas as etapas e grava respostas e escolha de publicidade numa transação. Retry não duplica nem restaura autorização revogada.
+
+O aviso foi substituído pelo texto solicitado para Mix By Nam. Publicidade tem checkbox opcional; não é base nem requisito do atendimento. O banco registra escolha, data/hora e texto/versão de marketing; dados antigos recebem marketing_allowed=false, sem presumir consentimento. Revogação pública exige o segredo do próprio pedido; também pode ser registrada pelo único produtor autorizado após solicitação e verificação de identidade. Sem envio automático de campanhas.
+
+A página /privacidade informa o responsável **Renan Cubinhetz Guido Silva**, o canal **mixbynam@gmail.com** e o prazo informado de **cinco anos a partir do envio**. Bases legais e adequação desse prazo por finalidade precisam de revisão jurídica. A exclusão é administrativa, sem rotina automática. Dados financeiros e hipóteses legais de conservação precisam ser avaliados separadamente. Referência: [LGPD](https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/lei/l13709.htm).
+
+**Legado:** 008 não apaga registros antigos. Bloqueia consultas comerciais/atendimento de incompletos e revoga coleta parcial via API. O responsável precisa revisar e eliminar ou justificar a conservação dos registros anteriores, inclusive cópias exportadas. Faça backup administrativo antes da migração; a exportação do painel não inclui projetos incompletos e não substitui backup completo. Registros financeiros ou sessões antigas ligados a incompletos devem ser conferidos administrativamente antes de qualquer exclusão, preservando obrigações aplicáveis. Não usar dados legados incompletos para prospecção.
 
 Node.js 22 ou superior:
 
@@ -48,8 +58,14 @@ Execute como postgres no SQL Editor, uma vez e em ordem:
 3. [003_producer_schedule.sql](supabase/migrations/003_producer_schedule.sql): agenda e conflito de horários.
 4. [004_manual_finance.sql](supabase/migrations/004_manual_finance.sql): contratos, lançamentos e indicadores.
 5. [005_producer_queries.sql](supabase/migrations/005_producer_queries.sql): projeções pequenas, detalhe agrupado, consultas da agenda e recuperação corrigida.
+6. [006_finance_completion.sql](supabase/migrations/006_finance_completion.sql): conclusão financeira, busca de pedidos abertos e bloqueio de alterações após conclusão.
+7. [007_finance_month_details.sql](supabase/migrations/007_finance_month_details.sql): total e lista privada dos lançamentos do mês.
+8. [008_submission_privacy.sql](supabase/migrations/008_submission_privacy.sql): envio atômico, publicidade opcional, revogação e exclusão de incompletos das listas comerciais.
+9. [009_whatsapp_validation.sql](supabase/migrations/009_whatsapp_validation.sql): DDD brasileiro, número com 8/9 dígitos e tamanhos internacionais por código do país.
+10. [010_optional_beat_type.sql](supabase/migrations/010_optional_beat_type.sql): permite selecionar beat sem exigir tipo; mantém respostas históricas.
+11. [011_mix_by_nam_privacy_text.sql](supabase/migrations/011_mix_by_nam_privacy_text.sql): marca Mix By Nam nos novos registros, com nova versão do texto de publicidade e aviso de privacidade.
 
-**Se 001–003 já foram aplicadas, execute somente 004 e depois 005.** Não reaplique as anteriores. As migrações novas são transacionais e não alteram as respostas existentes. Faça backup administrativo antes de atualizar um ambiente com dados. Publique a interface nova somente após aplicar suas migrações.
+**Se 001–010 já foram aplicadas, execute somente 011.** Se está em 009, aplique 010 → 011. Se está em 008, aplique 009 → 010 → 011. Não reaplique as anteriores. Faça backup antes de atualizar um ambiente com dados e publique a interface nova após aplicar suas migrações.
 
 Em Authentication, mantenha e-mail/senha ativo, cadastro público e login anônimo desabilitados. Crie o produtor em Users → Add user → Create new user, com Auto Confirm User, sem convite por e-mail. Execute [configure_master.sql](supabase/setup/configure_master.sql), substituindo o placeholder pelo e-mail da conta criada. O script mantém um único UUID em `private.producer`; não concede papel administrativo do Supabase. Outra conta, mesmo autenticada, não recebe os dados.
 
@@ -59,13 +75,13 @@ Recuperação de senha é administrativa pelo Dashboard; não há envio automát
 
 `projects.updated_at` representa a última atualização confirmada do artista. Alterações de atendimento, sessões ou financeiro não modificam esse relógio. Situação comercial e histórico são separados das respostas.
 
-Retomar contato inclui incompletos sem atualização há **pelo menos 24h**, ações vencidas e concluídos sem contato manual. `INACTIVITY_HOURS` em `src/lib/followup.ts` configura o limite; a RPC usa a hora do banco. Um incompleto recente pode ainda estar em preenchimento. A interface não afirma abandono.
+Retomar contato agora inclui **somente solicitações enviadas** sem atendimento e ações vencidas. A recuperação comercial de formulários incompletos foi desativada por esta revisão de privacidade. O parâmetro antigo de 24 horas permanece apenas para compatibilidade da assinatura de RPC; não inclui contatos incompletos.
 
 **Fechado, Perdido e Não contatar ficam fora de Retomar contato e Sem atendimento.** Histórico é preservado. Compromissos de produção de clientes fechados devem ser acompanhados na agenda. Não contatar também bloqueia WhatsApp e novo registro de contato.
 
 Situações: Novo, Em contato, Proposta enviada, Fechado, Perdido, Não contatar. Formulário concluído não significa venda fechada, sessão realizada ou pagamento recebido. Notas e cliques não comprovam contato. Próxima ação e data de retorno são preenchidas juntas; contato manual não apaga a ação automaticamente. Revisão protege alterações de outra janela. UUID de operação impede duplicação por retry.
 
-A chave de retomada do artista fica em sessionStorage, apenas para identificar seu pedido. As respostas persistem no Supabase. Recarregar recupera etapas confirmadas; respostas não salvas se perdem. Fechar a aba encerra a recuperação pelo artista, mantendo o contato no painel. Identificador público não é credencial. A chave secreta não aparece em WhatsApp nem exportações.
+Antes do envio, respostas ficam só em memória: voltar preserva respostas, mas fechar ou recarregar perde o rascunho. Nenhum nome/telefone/resposta é gravado em sessionStorage, localStorage ou no banco nesse período. Após confirmação do envio, sessionStorage guarda somente UUID e segredo para reabrir a confirmação e revogar publicidade na mesma aba. Sem essa chave, o titular solicita cancelamento pelo canal da política; o produtor registra a revogação no painel. Identificador público não é credencial e a chave secreta não aparece em WhatsApp ou exportações.
 
 ## Agenda e cache
 
@@ -80,6 +96,12 @@ Apenas a aba ativa consulta dados. Abas já visitadas preservam estado, mas não
 Listas de contatos trazem campos pequenos. O atendimento agrupa respostas, acompanhamento e primeira página do histórico em uma chamada. Salvamento devolve acompanhamento/evento para atualizar a tela sem três releituras. Busca de artista é explícita pelo botão, nunca por tecla/cartão.
 
 ## Financeiro e significado dos indicadores
+
+A interface mostra apenas **Faturado no mês**: recebimentos menos estornos no mês selecionado. O vencimento e o motivo do contrato foram retirados do formulário; o histórico recebe uma descrição padrão de registro ou atualização pelo produtor. As definições abaixo documentam também os campos mantidos na RPC.
+
+Abaixo do total, cada lançamento aparece como **+ R$ 1.500,00 — Pedido Nam (ID curto)**; estornos usam sinal negativo e a indicação “estorno”. O mês segue a data do pagamento em Brasília, inclusive em pedidos concluídos no financeiro. A lista mostra 20 lançamentos por página, com “Mais lançamentos” quando necessário; o total sempre considera o mês inteiro. Só o produtor autorizado consulta a lista, junto com o total numa única RPC.
+
+Depois de salvar o contrato, **Concluir pedido** pede confirmação e informa eventual saldo pendente. A conclusão financeira não marca pagamento, não altera respostas do artista ou situação comercial. Registra data/autor, acrescenta histórico e retira o projeto da busca desta aba; buscas de agenda e contatos continuam disponíveis. O banco bloqueia novos ajustes, recebimentos e estornos, inclusive com uma tela antiga aberta. Não há reabertura nesta versão. Concluir com saldo pendente não o apaga. O faturamento e o backup JSON preservam contratos, lançamentos e a conclusão.
 
 O produtor informa o valor real combinado, **sem inferir pelo orçamento do formulário ou pela situação Fechado**. Data de contratação é obrigatória e não pode ser futura. Vencimento é opcional; sem data o saldo não entra em vencido. Valor por contrato/lançamento: 1 até 1.000.000.000.000 centavos. Centavos inteiros são armazenados em bigint; valores agregados retornam texto, formatado com BigInt no navegador, sem arredondamento binário.
 
@@ -144,7 +166,7 @@ A medição `test:measure` usa **build de produção local**, backend isolado e 
 
 ### Integração remota separada
 
-Crie outro Supabase Free, aplique 001→005, crie produtor e outra conta confirmados e autorize somente o produtor. Preencha `.env.test.local` com URL/chave e credenciais **de teste**, com TEST_CONFIRM_ISOLATED_PROJECT=yes. O teste recusa hostname do `.env.local` e verifica autorização antes de escrever.
+Crie outro Supabase Free, aplique 001→010, crie produtor e outra conta confirmados e autorize somente o produtor. Preencha `.env.test.local` com URL/chave e credenciais **de teste**, com TEST_CONFIRM_ISOLATED_PROJECT=yes. O teste recusa hostname do `.env.local` e verifica autorização antes de escrever.
 
 ```sh
 npm run test:integration
@@ -156,7 +178,7 @@ A suíte cobre API, concorrência de salvamento/agenda e duas conexões criando 
 
 1. Aplicar migrações, criar master e outra conta. Conferir bloqueio no painel e chamadas diretas às tabelas/RPCs com visitante/outro usuário.
 2. No celular 320/390 e desktop, preencher etapas, voltar, provocar falha e tentar novamente. Confirmar um único registro e confirmação somente após sucesso. Resumo/ID ficam acessíveis; WhatsApp não envia automaticamente.
-3. Conferir incompleto recente fora da recuperação; apenas no teste, envelhecer updated_at para 24h. Alterar atendimento sem mudar relógio do artista. Fechado/Perdido/Não contatar saem da recuperação mantendo histórico.
+3. Antes do envio, conferir zero gravações/requisições de dados ao avançar etapas ou mudar publicidade; recarregar e confirmar perda do rascunho. Enviar com publicidade marcada e desmarcada; conferir escolha, texto/versão/hora do banco. Cancelar pela confirmação e pelo painel. Registros incompletos legados devem ficar fora das listas e do atendimento comercial.
 4. Abrir WhatsApp e registrar nota não comprovam contato. Confirmar manualmente e consultar histórico paginado. Formulário concluído é separado de fechamento/venda/produção.
 5. Agenda mensal: fevereiro 28/29, meses de 30/31, dezembro/janeiro e sessão entre dias. Escolher dia, editar, cancelar; 10h–11h/11h–12h aceitos, 10h30–11h30 rejeitado. Validar concorrência e versão antiga em duas conexões.
 6. Contrato 100,01 com data explícita, recebimento 33,33 e estorno 0,33: líquido 33,00, saldo 67,01. Não preencher preço a partir do orçamento. Provar que fechado/concluído não gera pagamento.
@@ -166,3 +188,17 @@ A suíte cobre API, concorrência de salvamento/agenda e duas conexões criando 
 10. Exportar JSON v3, conferir as sete coleções, relações e lançamentos. Guardar fora do Git. Após aceite remoto, publicar no Netlify Free e testar endereço público.
 
 Links de entrega de áudio continuam para próxima implementação, sempre externos. Não há integração paga, gateway ou automação de mensagens.
+
+## Playlist na página pública
+
+O centro verde do disco é um botão **PLAY/PAUSAR**, com indicação de playlist no Spotify. O primeiro clique carrega a iFrame API oficial e solicita reprodução; cliques seguintes controlam pausa e retomada. As ondas são uma animação visual ligada aos eventos reais de reprodução, parada durante pausa, carregamento ou fim; respeitam redução de movimento. Não são um analisador de frequências do áudio. O player mantém controles oficiais e link direto. Alguns navegadores exigem um toque adicional no play do Spotify; o site informa isso e não simula música tocando. Sem SDK Premium, chave de API, reprodução ao abrir a página ou alteração no banco. Referência: https://developer.spotify.com/documentation/embeds/references/iframe-api
+
+## Validação do WhatsApp
+
+Brasil: DDD existente + número de 8 dígitos, ou 9 dígitos iniciados por 9. Máscara (11) 9999-9999 / (11) 99999-9999; digitação limitada a 11 dígitos. A opção Outro país exige código internacional e ajusta o limite conforme esse código, até 15 dígitos. O +1 exige também código de área. Novos envios guardam +código-país+número, sem pontuação, evitando confundir números internacionais com nacionais na abertura do WhatsApp. Não acrescentamos o nono dígito a números de 8 dígitos; é a compatibilidade solicitada, não confirmação de existência da linha ou conta WhatsApp. [Plano brasileiro — Anatel](https://www.gov.br/anatel/pt-br/regulado/numeracao/plano-de-numeracao-brasileiro).
+
+Dependência gratuita libphonenumber-js/min, fixada no lockfile, justificada para interpretar e validar comprimentos internacionais localmente, sem API externa. A migração 009 contém a mesma referência de comprimentos em tabela privada e protege chamadas diretas. Metadados não provam posse/conta ativa. Atualizações futuras precisam manter biblioteca e regras do banco sincronizadas por nova migração; não sobrescrever migrações aplicadas. Dados anteriores não são reescritos; links continuam aceitando números nacionais legados.
+
+## Opções atuais de serviços
+
+O formulário oferece seis opções; a última é Autotune e/ou Discotecagem (som ao vivo). Suporte ao vivo não é uma opção separada. A pergunta Como você quer seu beat? foi removida. Selecionar beat não exige tipo nem atribui pronto/exclusivo/sob encomenda automaticamente. O campo histórico beat_type continua disponível em pedidos antigos e exportações, mas novos envios do site usam vazio. A migração 010 torna esse vazio válido no banco; aplicar antes de divulgar a interface atual.

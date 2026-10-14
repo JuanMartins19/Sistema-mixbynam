@@ -5,7 +5,45 @@ import {testDatabase} from './helpers/database';
 import {parseMoney,money} from '../src/lib/finance';
 import {monthCells,agendaDays,overlapsDay,shiftMonth,type ProducerSession} from '../src/lib/schedule';
 import {MemoryCache} from '../src/lib/cache';
-const migrations=['001_projects.sql','002_contact_followup.sql','003_producer_schedule.sql','004_manual_finance.sql','005_producer_queries.sql'];
+const migrations=['001_projects.sql','002_contact_followup.sql','003_producer_schedule.sql','004_manual_finance.sql','005_producer_queries.sql','006_finance_completion.sql','007_finance_month_details.sql'];
+
+test('conclusão financeira é privada, idempotente e bloqueia alterações sem apagar faturamento',async()=>{
+  const {db,project,role}=await testDatabase(migrations);
+  try{
+    const p=await project(true),other=await project();
+    await db.query("select public.save_project_contract($1,$2,10000,'2020-01-01',null,0,'Contrato de teste')",[p.id,randomUUID()]);
+    const receipt=randomUUID();
+    await db.query("select public.record_finance_entry($1,$2,'receipt',4000,'2020-01-02T15:00:00Z','Pix','',null)",[p.id,receipt]);
+    const original=(await db.query('select * from public.projects where id=$1',[p.id])).rows[0];
+    await assert.rejects(db.query('select public.complete_financial_project($1,0)',[p.id]),/outra janela/);
+    for(const who of ['anon','other'] as const){
+      await role(who);
+      await assert.rejects(db.query('select public.complete_financial_project($1,1)',[p.id]),/permission denied|Acesso não autorizado/);
+      await assert.rejects(db.query('select public.producer_find_financial_projects()'),/permission denied|Acesso não autorizado/);
+      await assert.rejects(db.query("select public.finance_month_summary('2020-01-01')"),/permission denied|Acesso não autorizado/);
+    }
+    await role('producer');
+    const first=(await db.query<{r:{finalized_at:string}}>('select public.complete_financial_project($1,1) as r',[p.id])).rows[0].r;
+    const retry=(await db.query<{r:{finalized_at:string}}>('select public.complete_financial_project($1,1) as r',[p.id])).rows[0].r;
+    assert.ok(first.finalized_at);assert.equal(first.finalized_at,retry.finalized_at);
+    assert.equal((await db.query('select * from public.contract_history')).rows.length,2);
+    const results=(await db.query<{r:{id:string}[]}>('select public.producer_find_financial_projects() as r')).rows[0].r;
+    assert.deepEqual(results.map(r=>r.id),[other.id]);
+    assert.equal((await db.query<{r:unknown[]}>('select public.producer_find_projects() as r')).rows[0].r.length,2);
+    await assert.rejects(db.query("select public.save_project_contract($1,$2,11000,'2020-01-01',null,2,'Ajuste de teste')",[p.id,randomUUID()]),/financeiro concluído/);
+    for(const kind of ['receipt','refund'])await assert.rejects(db.query("select public.record_finance_entry($1,$2,$3,100,'2020-01-03T15:00:00Z','Pix','Motivo do teste',$4)",[p.id,randomUUID(),kind,kind==='refund'?receipt:null]),/financeiro concluído/);
+    // Retry de um lançamento confirmado continua seguro, sem nova escrita.
+    await db.query("select public.record_finance_entry($1,$2,'receipt',4000,'2020-01-02T15:00:00Z','Pix','',null)",[p.id,receipt]);
+    assert.equal((await db.query<{r:{received_cents:string}}>("select public.finance_snapshot('2020-01-01') as r")).rows[0].r.received_cents,'4000');
+    const summary=(await db.query<{r:{received_cents:string;entries:{public_id:string;artist_name:string;amount_cents:string;kind:string}[]}}>("select public.finance_month_summary('2020-01-01') as r")).rows[0].r;
+    assert.equal(summary.received_cents,'4000');assert.equal(summary.entries.length,1);
+    assert.equal(summary.entries[0].artist_name,'Teste');assert.equal(summary.entries[0].amount_cents,'4000');assert.equal(summary.entries[0].kind,'receipt');
+    assert.ok(summary.entries[0].public_id);
+    assert.deepEqual((await db.query<{r:{entries:unknown[]}}>("select public.finance_month_summary('2020-02-01') as r")).rows[0].r.entries,[]);
+    assert.deepEqual((await db.query<{r:{entries:unknown[]}}>("select public.finance_month_summary('2020-01-01',20) as r")).rows[0].r.entries,[]);
+    assert.deepEqual((await db.query('select * from public.projects where id=$1',[p.id])).rows[0],original);
+  }finally{await db.close();}
+});
 test('financeiro e consultas: valores reais, histórico, limites e acesso',async t=>{
   const {db,role,project}=await testDatabase(migrations);const p=await project(true);let receiptId:string;
   async function contract(value='10001',revision=0,op:string=randomUUID()){return (await db.query<{r:{revision:number}}>('select public.save_project_contract($1,$2,$3,$4,$5,$6,$7) as r',[p.id,op,value,'2020-01-31','2020-02-01',revision,'Contrato ou ajuste de teste'])).rows[0].r;}

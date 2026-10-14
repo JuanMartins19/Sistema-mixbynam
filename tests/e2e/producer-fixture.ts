@@ -6,7 +6,7 @@ import type { PGlite } from '@electric-sql/pglite';
 type Fixture={backend:{db:PGlite;projectId:string;traffic:{path:string;request_bytes:number;response_bytes:number}[]}};
 export const test=base.extend<Fixture>({
   backend:async({context},use)=>{
-    const {db,project,producer}=await testDatabase(['001_projects.sql','002_contact_followup.sql','003_producer_schedule.sql','004_manual_finance.sql','005_producer_queries.sql']);
+    const {db,project,producer}=await testDatabase(['001_projects.sql','002_contact_followup.sql','003_producer_schedule.sql','004_manual_finance.sql','005_producer_queries.sql','006_finance_completion.sql','007_finance_month_details.sql','008_submission_privacy.sql','009_whatsapp_validation.sql','010_optional_beat_type.sql']);
     const p=await project(true);
     const traffic:{path:string;request_bytes:number;response_bytes:number}[]=[];
     await context.route(/^https:\/\/[^/]+\.supabase\.co\//,route=>route.abort('blockedbyclient'));
@@ -22,6 +22,12 @@ export const test=base.extend<Fixture>({
         }else if(url.pathname.startsWith('/rest/v1/rpc/')){
           const rpc=url.pathname.split('/').at(-1)!;const args=request.postDataJSON()??{};
           const mapping:Record<string,{sql:string;keys:string[]}>= {
+            submit_project:{sql:'select public.submit_project($1,$2,$3,$4) as r',keys:['p_id','p_token','p_answers','p_marketing']},
+            resume_project:{sql:'select public.resume_project($1,$2) as r',keys:['p_id','p_token']},
+            revoke_project_marketing:{sql:'select public.revoke_project_marketing($1,$2) as r',keys:['p_id','p_token']},
+            finance_month_summary:{sql:'select public.finance_month_summary($1,$2) as r',keys:['p_month','p_offset']},
+            producer_find_financial_projects:{sql:'select public.producer_find_financial_projects($1,$2) as r',keys:['p_search','p_offset']},
+            complete_financial_project:{sql:'select public.complete_financial_project($1,$2) as r',keys:['p_project_id','p_expected_revision']},
             
             producer_contacts:{sql:'select public.producer_contacts($1,$2,$3,$4) as r',keys:['p_filter','p_offset','p_limit','p_inactivity_hours']},
             producer_contact_detail:{sql:'select public.producer_contact_detail($1) as r',keys:['p_id']},

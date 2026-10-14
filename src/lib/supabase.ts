@@ -11,9 +11,11 @@ export function getSupabase(): SupabaseClient {
   catch { console.error('Atendimento indisponível',{code:'invalid_supabase_configuration'});throw new Error('O atendimento online está indisponível no momento. Tente novamente mais tarde.'); }
   return client;
 }
-export async function saveProject(id: string, token: string, step: number, answers: Answers) {
-  const { data, error } = await getSupabase().rpc('save_project', {
-    p_id: id, p_token: token, p_step: step, p_answers: cleanAnswers(answers),
+export async function submitProject(id: string, token: string, answers: Answers) {
+  const {consent:legacyConsent,marketing,...responses}=cleanAnswers(answers);
+  void legacyConsent;
+  const { data, error } = await getSupabase().rpc('submit_project', {
+    p_id: id, p_token: token, p_answers: responses, p_marketing:marketing,
   });
   if (error || !data) { console.error('Falha ao salvar pedido', {code:error?.code}); throw new Error('Não foi possível salvar suas respostas. Elas continuam nesta tela. Confira sua conexão e tente novamente.'); }
   return data as Project;

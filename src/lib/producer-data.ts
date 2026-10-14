@@ -5,9 +5,23 @@ import type { Project } from './project';
 import { agendaRange,overlapsDay,type SessionWithProject } from './schedule';
 export type ContactCard={id:string;artist_name:string;services:string[]|null;form_status:Project['status'];progress:number;commercial_status:CommercialStatus;next_action:string|null;return_at:string|null;recovery_reasons:string[]};
 export type ContactDetail={queried_at:string;project:Project;tracking:ContactTracking|null;history:ContactHistory[]};
+const financeErrors:Record<string,string>={
+  'Recebimento acima do valor contratado':'O pagamento ultrapassa o saldo deste contrato. Confira o valor ou ajuste o contrato antes de registrar.',
+  'Estorno superior ao recebido disponível':'O estorno ultrapassa o valor disponível do recebimento original.',
+  'Registre um contrato antes do recebimento':'Salve o contrato deste projeto antes de registrar o pagamento.',
+  'Recebimento original inválido':'Selecione novamente o recebimento que deseja estornar.',
+  'Lançamento inválido':'Confira o valor e a data do pagamento. A data não pode estar no futuro. Para estornos, informe também o motivo.',
+  'Operação já utilizada':'Esta tentativa já foi utilizada com outros dados. Atualize o financeiro antes de tentar novamente.',
+};
 export async function rpc<T>(name:string,args:Record<string,unknown>={}) {
   const {data,error}=await getSupabase().rpc(name,args);
-  if(error||data===null){console.error('Falha na operação',{operation:name,code:error?.code});throw Object.assign(new Error('Não foi possível concluir. Tente novamente.'),{code:error?.code});}
+  if(error||data===null){
+    const code=error?.code;
+    // Falhas esperadas aparecem no formulário; logs não incluem respostas ou contatos.
+    console.warn('Operação não concluída',{operation:name,code:code||'unknown'});
+    const message=name==='record_finance_entry'&&code==='22023'&&error?financeErrors[error.message]:undefined;
+    throw Object.assign(new Error(message||(code==='55000'?'Este pedido já foi concluído no financeiro e não permite alterações.':code==='42501'||code==='PGRST301'?'Sua sessão não permite esta operação. Saia e entre novamente.':code==='PGRST202'?'O banco precisa ser atualizado para esta função. Confira se as migrações financeiras foram aplicadas.':'Não foi possível concluir. Confira sua conexão e tente novamente.')),{code});
+  }
   return data as T;
 }
 export const contactDetail=(id:string)=>producerCache.query<ContactDetail>('detail:'+id,()=>rpc('producer_contact_detail',{p_id:id}));
