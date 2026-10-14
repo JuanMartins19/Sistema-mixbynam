@@ -1,4 +1,10 @@
 import type { Project } from './project';
+import type { ContactHistory, ContactTracking } from './followup';
+import type { ProducerSession } from './schedule';
+export function backupV2(exportedAt:string,projects:Project[],tracking:ContactTracking[],history:ContactHistory[],sessions:ProducerSession[]) {
+  return {format:'mixbynam-export',version:2,exported_at:exportedAt,time_zone:'America/Sao_Paulo',
+    backup_scope:'application_records_only',projects,contact_tracking:tracking,contact_history:history,producer_sessions:sessions};
+}
 export function csvCell(value: unknown) {
   let text = value == null ? '' : typeof value === 'object' ? JSON.stringify(value) : String(value);
   // Neutraliza fórmulas também após espaços/control characters (Excel/LibreOffice).

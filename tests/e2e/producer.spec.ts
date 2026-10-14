@@ -1,0 +1,36 @@
+import { test, expect } from './producer-fixture';
+import { readFile } from 'node:fs/promises';
+test('celular: atendimento manual, fila, não contatar e backup v2',async({page,backend},testInfo)=>{
+  await page.setViewportSize({width:390,height:844});await page.goto('/produtor');
+  await page.getByLabel('E-mail',{exact:true}).fill('producer@example.test');await page.getByLabel('Senha',{exact:true}).fill('test-password');await page.getByRole('button',{name:'Entrar no painel'}).click();
+  await expect(page.getByRole('heading',{name:'Projetos em vista.'})).toBeVisible();
+  await page.getByRole('button',{name:'Retomar contato',exact:true}).click();await expect(page.getByText('Concluído sem atendimento registrado')).toBeVisible();
+  await page.getByRole('button',{name:'Ver pedido'}).click();await expect(page.getByRole('heading',{name:'Acompanhamento do contato'})).toBeVisible();
+  await expect(page.getByRole('link',{name:'Abrir WhatsApp do artista'})).toHaveAttribute('href',/wa\.me\/5511999999999/);
+  const popup=page.waitForEvent('popup');await page.getByRole('link',{name:'Abrir WhatsApp do artista'}).click();await (await popup).close();
+  expect((await backend.db.query("select * from public.contact_history where kind='contact'")).rows).toHaveLength(0);
+  await page.getByLabel('Situação comercial').selectOption('in_contact');await page.getByLabel('Próxima ação',{exact:true}).fill('Retornar sobre referências');await page.getByLabel('Data e hora de retorno').fill('2020-01-01T10:00');await page.getByRole('button',{name:'Salvar acompanhamento'}).click();
+  await expect(page.getByText('Acompanhamento confirmado no banco.')).toBeVisible();await expect(page.getByText('Próxima ação vencida',{exact:true})).toBeVisible();
+  await page.getByLabel('Registro de atendimento').fill('Nota interna de teste');await page.getByRole('button',{name:'Registrar nota',exact:true}).click();await expect(page.getByText('Nota interna de teste',{exact:true})).toBeVisible();
+  await page.getByLabel('Tipo de registro').selectOption('contact');await page.getByLabel('Registro de atendimento').fill('Conversa confirmada manualmente');page.once('dialog',d=>d.accept());await page.getByRole('button',{name:'Confirmar contato realizado'}).click();await expect(page.getByText('Conversa confirmada manualmente',{exact:true})).toBeVisible();
+  await page.getByLabel('Situação comercial').selectOption('do_not_contact');await page.getByRole('button',{name:'Salvar acompanhamento'}).click();await expect(page.getByText('Não contatar: este pedido fica fora da fila de recuperação.')).toBeVisible();await expect(page.getByRole('link',{name:'Abrir WhatsApp do artista'})).toHaveCount(0);
+  await page.getByRole('button',{name:'Fechar detalhes'}).click();await expect(page.getByText('Nenhum pedido neste filtro.')).toBeVisible();
+  const download=page.waitForEvent('download');await page.getByRole('button',{name:'Backup JSON'}).click();const file=await download;const path=testInfo.outputPath('backup.json');await file.saveAs(path);const backup=JSON.parse(await readFile(path,'utf8'));expect(backup.version).toBe(2);expect(backup.contact_tracking[0].commercial_status).toBe('do_not_contact');expect(backup.contact_history.some((h:{kind:string})=>h.kind==='contact')).toBe(true);expect(backup.producer_sessions).toEqual([]);
+  await page.screenshot({path:'test-results/screenshots/contacts-mobile.png',fullPage:true});
+  const layout=await page.evaluate(()=>({viewport:window.innerWidth,width:document.documentElement.scrollWidth,overflow:Array.from(document.querySelectorAll('main *')).filter(e=>e.getBoundingClientRect().right>window.innerWidth+1).slice(0,10).map(e=>({tag:e.tagName,class:e.className,right:e.getBoundingClientRect().right}))}));
+  expect(layout.width,JSON.stringify(layout)).toBeLessThanOrEqual(layout.viewport);
+});
+test('agenda móvel: criar, conflito com respostas preservadas, editar, cancelar e semana',async({page,backend},testInfo)=>{
+  await page.setViewportSize({width:390,height:844});await page.goto('/produtor');await page.getByLabel('E-mail',{exact:true}).fill('producer@example.test');await page.getByLabel('Senha',{exact:true}).fill('test-password');await page.getByRole('button',{name:'Entrar no painel'}).click();await page.getByRole('button',{name:'Agenda',exact:true}).click();
+  await page.getByLabel('Data da agenda').fill('2030-01-01');await expect(page.getByText('Sem sessões neste dia.')).toBeVisible();
+  async function chooseProject(){await page.getByRole('button',{name:'Buscar artistas',exact:true}).click();await page.getByRole('button',{name:/^Teste · /}).click();}
+  await page.getByRole('button',{name:'Nova sessão'}).click();await chooseProject();await page.getByRole('button',{name:'Salvar sessão',exact:true}).click();await expect(page.getByText('Sessão confirmada no banco.')).toBeVisible();await expect(page.locator('.session-card')).toHaveCount(1);
+  await page.getByRole('button',{name:'Nova sessão'}).click();await chooseProject();await page.getByLabel('Início — horário de Brasília').fill('2030-01-01T10:30');await page.getByLabel('Fim — horário de Brasília').fill('2030-01-01T11:30');await page.getByRole('button',{name:'Salvar sessão',exact:true}).click();await expect(page.getByRole('alert').filter({hasText:'Conflito de horário'})).toBeVisible();await expect(page.getByLabel('Início — horário de Brasília')).toHaveValue('2030-01-01T10:30');
+  await page.getByLabel('Início — horário de Brasília').fill('2030-01-01T11:00');await page.getByLabel('Fim — horário de Brasília').fill('2030-01-01T12:00');await page.getByRole('button',{name:'Salvar sessão',exact:true}).click();await expect(page.locator('.session-card')).toHaveCount(2);
+  await page.locator('.session-card').first().getByRole('button',{name:'Editar sessão'}).click();await page.getByLabel('Status da sessão').selectOption('confirmed');await page.getByRole('button',{name:'Salvar sessão',exact:true}).click();await expect(page.locator('.session-card').first()).toContainText('Confirmada');
+  page.once('dialog',d=>d.accept());await page.locator('.session-card').first().getByRole('button',{name:'Cancelar sessão'}).click();await expect(page.locator('.session-card.cancelled')).toHaveCount(1);
+  await page.getByRole('button',{name:'Semanal',exact:true}).click();await expect(page.locator('.agenda-day')).toHaveCount(7);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);await page.screenshot({path:'test-results/screenshots/agenda-mobile.png',fullPage:true});
+  const sessions=(await backend.db.query<{status:string}>('select status from public.producer_sessions')).rows;expect(sessions).toHaveLength(2);expect(sessions.some(s=>s.status==='cancelled')).toBe(true);
+  await page.getByRole('button',{name:'Contatos',exact:true}).click();
+  const download=page.waitForEvent('download');await page.getByRole('button',{name:'Backup JSON'}).click();const file=await download;const path=testInfo.outputPath('agenda-backup.json');await file.saveAs(path);const backup=JSON.parse(await readFile(path,'utf8'));expect(backup.producer_sessions).toHaveLength(2);expect(backup.producer_sessions.some((s:{status:string})=>s.status==='cancelled')).toBe(true);
+});

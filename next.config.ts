@@ -1,5 +1,7 @@
 import type { NextConfig } from 'next';
 const config: NextConfig = {
+  // Diretório fixo e isolado para testes; publicação continua usando .next.
+  distDir: process.env.MIXBYNAM_E2E === '1' ? '.next-e2e' : '.next',
   poweredByHeader: false,
   async headers() {
     return [{ source: '/:path*', headers: [

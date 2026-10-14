@@ -1,0 +1,55 @@
+// Dublê de Auth/HTTP restrito aos testes; RPCs executam migrações reais no PGlite.
+// Nenhuma rota simulada ou chave de teste é incluída na aplicação.
+import { test as base, expect } from '@playwright/test';
+import { testDatabase } from '../helpers/database';
+import type { PGlite } from '@electric-sql/pglite';
+type Fixture={backend:{db:PGlite;projectId:string}};
+export const test=base.extend<Fixture>({
+  backend:async({context},use)=>{
+    const {db,project,producer}=await testDatabase(['001_projects.sql','002_contact_followup.sql','003_producer_schedule.sql']);
+    const p=await project(true);
+    const user={id:producer,aud:'authenticated',role:'authenticated',email:'producer@example.test',app_metadata:{provider:'email',providers:['email']},user_metadata:{},created_at:new Date().toISOString()};
+    const jwt=(obj:unknown)=>Buffer.from(JSON.stringify(obj)).toString('base64url');
+    const token=`${jwt({alg:'HS256',typ:'JWT'})}.${jwt({sub:producer,role:'authenticated',aud:'authenticated',exp:Math.floor(Date.now()/1000)+3600})}.test-signature`;
+    await context.route('https://wa.me/**',route=>route.fulfill({status:200,body:'WhatsApp interceptado pelo teste; nenhuma mensagem enviada.'}));
+    await context.route('https://mixbynam-test.invalid/**',async route=>{
+      try {
+        const request=route.request();const url=new URL(request.url());let data:unknown;
+        if(url.pathname.startsWith('/auth/v1/')) {
+          data=url.pathname.includes('/token')?{access_token:token,refresh_token:'test-refresh',token_type:'bearer',expires_in:3600,user}:user;
+        }else if(url.pathname.startsWith('/rest/v1/rpc/')){
+          const rpc=url.pathname.split('/').at(-1)!;const args=request.postDataJSON()??{};
+          const mapping:Record<string,{sql:string;keys:string[]}>= {
+            is_producer:{sql:'select public.is_producer() as r',keys:[]},
+            list_producer_projects:{sql:'select public.list_producer_projects($1,$2,$3,$4) as r',keys:['p_filter','p_offset','p_limit','p_inactivity_hours']},
+            save_contact_tracking:{sql:'select public.save_contact_tracking($1,$2,$3,$4,$5,$6) as r',keys:['p_project_id','p_operation_id','p_status','p_next_action','p_return_at','p_expected_revision']},
+            record_contact_history:{sql:'select public.record_contact_history($1,$2,$3,$4) as r',keys:['p_project_id','p_id','p_kind','p_body']},
+            save_producer_session:{sql:'select public.save_producer_session($1,$2,$3,$4,$5,$6,$7,$8) as r',keys:['p_id','p_project_id','p_session_type','p_starts_at','p_ends_at','p_notes','p_status','p_expected_updated_at']},
+          };
+          const m=mapping[rpc];if(!m)throw new Error('RPC não contemplada no teste: '+rpc);
+          data=(await db.query<{r:unknown}>(m.sql,m.keys.map(k=>args[k]??null))).rows[0].r;
+        }else {
+          const table=url.pathname.split('/').at(-1)!;
+          const allowed=['projects','contact_tracking','contact_history','producer_sessions'];
+          if(!allowed.includes(table))throw new Error('Tabela desconhecida no teste.');
+          const related=url.searchParams.get('select')?.includes('projects(');
+          const result=await db.query<{r:Record<string,unknown>}>(related
+            ? 'select to_jsonb(s)||jsonb_build_object(\'projects\',to_jsonb(p)) as r from public.producer_sessions s join public.projects p on p.id=s.project_id order by s.starts_at,s.id'
+            : `select to_jsonb(t) as r from public.${table} t`);
+          let rows=result.rows.map(r=>r.r);
+          const projectFilter=url.searchParams.get('project_id');if(projectFilter?.startsWith('eq.'))rows=rows.filter(r=>r.project_id===projectFilter.slice(3));
+          const publicFilter=url.searchParams.get('public_id');if(publicFilter?.startsWith('eq.'))rows=rows.filter(r=>r.public_id===publicFilter.slice(3));
+          if(table==='contact_history')rows.sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at))||String(b.id).localeCompare(String(a.id)));
+          if(table==='producer_sessions') {
+            const start=url.searchParams.get('starts_at')?.slice(3),end=url.searchParams.get('ends_at')?.slice(3);
+            if(start)rows=rows.filter(r=>Date.parse(String(r.starts_at))<Date.parse(start));if(end)rows=rows.filter(r=>Date.parse(String(r.ends_at))>Date.parse(end));
+          }
+          data=rows;
+        }
+        await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data)});
+      }catch(e){const error=e as {code?:string;message?:string};await route.fulfill({status:error.code==='42501'?403:400,contentType:'application/json',body:JSON.stringify({code:error.code||'TEST_ERROR',message:error.message,details:null,hint:null})});}
+    });
+    try{await use({db,projectId:p.id});}finally{await db.close();}
+  },
+});
+export { expect };

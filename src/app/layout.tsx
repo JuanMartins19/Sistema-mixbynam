@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import './globals.css';
+import './producer.css';
 export const metadata: Metadata = { title: 'Mixbynam · Seu próximo som começa aqui', description: 'Conte sua ideia e solicite uma produção musical, beat ou finalização.' };
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return <html lang="pt-BR"><body>
