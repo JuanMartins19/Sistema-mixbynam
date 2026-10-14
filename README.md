@@ -51,6 +51,24 @@ Neste Windows, `iniciar.cmd` usa o Node portátil preparado em `.tools`, quando 
 
 ## Migrações e produtor master
 
+### Erro no GitHub: projects already exists
+
+Se a estrutura foi criada pelo SQL Editor e depois ativada a aplicação automática das migrações, o histórico da ferramenta pode não corresponder ao banco. A tentativa de executar 001 novamente encontra a tabela existente. Neste repositório local não há workflow `.github/workflows` de aplicação do banco; a origem do check deve ser confirmada no GitHub/Supabase.
+
+Execute [check_migration_history.sql](supabase/setup/check_migration_history.sql) no SQL Editor. O diagnóstico é somente leitura, sem dados de clientes. Se o histórico existir, execute a segunda consulta comentada separadamente. Confira quais arquivos foram realmente executados integralmente: presença de uma tabela isolada não basta. Faça backup administrativo antes de reparar o histórico.
+
+Para usar a automação, alinhe o histórico do banco correto com os arquivos já aplicados, conforme [migration repair](https://supabase.com/docs/reference/cli/supabase-migration-repair). Com a CLI instalada e autenticada, na raiz do projeto:
+
+```sh
+supabase link --project-ref REFERENCIA-DO-PROJETO-CORRETO
+supabase migration list --linked
+# Somente se 001 foi aplicada integralmente e não está no histórico:
+supabase migration repair 001 --status applied --linked
+supabase migration list --linked
+```
+
+O reparo registra a versão como aplicada; não executa novamente seu SQL. Repita somente para versões comprovadamente aplicadas e ausentes do histórico. Não marcar todas por suposição, não resetar banco com dados e não renomear migrações existentes para contornar o erro. Depois confira as pendentes e reexecute o check. O reparo precisa ser no banco que apresentou o erro (produção e branches podem ter históricos distintos), sem senhas ou tokens no repositório. Alternativa operacional: manter migrações manuais e desativar a aplicação automática de migrações na integração, sem desativar o deploy do site no Netlify.
+
 Execute como postgres no SQL Editor, uma vez e em ordem:
 
 1. [001_projects.sql](supabase/migrations/001_projects.sql): formulário e autorização original.
