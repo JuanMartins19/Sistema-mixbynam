@@ -1,0 +1,8 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+[build.environment]
+  NODE_VERSION = "22"
+  NEXT_TELEMETRY_DISABLED = "1"
+# Netlify detecta Next.js e instala o adaptador OpenNext automaticamente.
+# Não habilitar Netlify Forms: os pedidos são salvos diretamente no Supabase.
