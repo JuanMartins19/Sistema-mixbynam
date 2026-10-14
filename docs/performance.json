@@ -1,0 +1,89 @@
+﻿{
+    "before":  {
+                   "environment":  "production_local",
+                   "backend":  "PGlite + Auth/HTTP fixture",
+                   "sample":  "um pedido concluído; uma sessão no dia",
+                   "metrics":  "requisições REST; bytes de corpos JSON, sem cabeçalhos/compressão",
+                   "results":  {
+                                   "login":  {
+                                                 "calls":  3,
+                                                 "request_bytes":  72,
+                                                 "response_bytes":  932,
+                                                 "endpoints":  [
+                                                                   "/rest/v1/rpc/is_producer",
+                                                                   "/rest/v1/rpc/is_producer",
+                                                                   "/rest/v1/rpc/list_producer_projects"
+                                                               ]
+                                             },
+                                   "abrir_atendimento":  {
+                                                             "calls":  2,
+                                                             "request_bytes":  0,
+                                                             "response_bytes":  4,
+                                                             "endpoints":  [
+                                                                               "/rest/v1/contact_tracking",
+                                                                               "/rest/v1/contact_history"
+                                                                           ]
+                                                         },
+                                   "salvar_acompanhamento":  {
+                                                                 "calls":  4,
+                                                                 "request_bytes":  267,
+                                                                 "response_bytes":  1841,
+                                                                 "endpoints":  [
+                                                                                   "/rest/v1/rpc/save_contact_tracking",
+                                                                                   "/rest/v1/rpc/list_producer_projects",
+                                                                                   "/rest/v1/contact_tracking",
+                                                                                   "/rest/v1/contact_history"
+                                                                               ]
+                                                             },
+                                   "voltar_agenda":  {
+                                                         "calls":  1,
+                                                         "request_bytes":  0,
+                                                         "response_bytes":  1224,
+                                                         "endpoints":  [
+                                                                           "/rest/v1/producer_sessions"
+                                                                       ]
+                                                     }
+                               }
+               },
+    "after":  {
+                  "environment":  "production_local",
+                  "backend":  "PGlite + Auth/HTTP fixture",
+                  "sample":  "um pedido concluído; uma sessão no dia",
+                  "metrics":  "requisições REST; bytes de corpos JSON, sem cabeçalhos/compressão",
+                  "results":  {
+                                  "login":  {
+                                                "calls":  2,
+                                                "request_bytes":  70,
+                                                "response_bytes":  284,
+                                                "endpoints":  [
+                                                                  "/rest/v1/rpc/is_producer",
+                                                                  "/rest/v1/rpc/producer_contacts"
+                                                              ]
+                                            },
+                                  "abrir_atendimento":  {
+                                                            "calls":  1,
+                                                            "request_bytes":  47,
+                                                            "response_bytes":  958,
+                                                            "endpoints":  [
+                                                                              "/rest/v1/rpc/producer_contact_detail"
+                                                                          ]
+                                                        },
+                                  "salvar_acompanhamento":  {
+                                                                "calls":  1,
+                                                                "request_bytes":  199,
+                                                                "response_bytes":  624,
+                                                                "endpoints":  [
+                                                                                  "/rest/v1/rpc/producer_update_tracking"
+                                                                              ]
+                                                            },
+                                  "voltar_agenda":  {
+                                                        "calls":  0,
+                                                        "request_bytes":  0,
+                                                        "response_bytes":  0,
+                                                        "endpoints":  [
+
+                                                                      ]
+                                                    }
+                              }
+              }
+}

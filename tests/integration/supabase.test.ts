@@ -85,6 +85,17 @@ test('integração em Supabase separado: API, concorrência e autorização',asy
       const unauthorized=await other.rpc('record_contact_history',{p_project_id:id,p_id:randomUUID(),p_kind:'note',p_body:'Intruso'});assert.equal(unauthorized.error?.code,'42501');
       const queue=await anon.rpc('list_producer_projects',{});assert.ok(queue.error);
     });
+    await t.test('financeiro: concorrência real de entradas e estornos preserva limites',async()=>{
+      const contract=await producer.rpc('save_project_contract',{p_project_id:id,p_operation_id:randomUUID(),p_amount_cents:'10001',p_contracted_on:'2020-01-01',p_due_on:'2020-01-31',p_expected_revision:0,p_reason:'Contrato no projeto de teste'});assert.equal(contract.error,null);
+      const params={p_project_id:id,p_id:randomUUID(),p_kind:'receipt',p_amount_cents:'6001',p_occurred_at:'2020-01-01T13:00:00Z',p_method:'Pix',p_reason:'Conferência isolada',p_refund_of:null};
+      const outcomes=await Promise.all([producer.rpc('record_finance_entry',params),rival.rpc('record_finance_entry',{...params,p_id:randomUUID()})]);assert.equal(outcomes.filter(r=>!r.error).length,1);assert.equal(outcomes.filter(r=>r.error?.code==='22023').length,1);
+      const winner=outcomes.find(r=>!r.error)!.data;
+      const refund={...params,p_id:randomUUID(),p_kind:'refund',p_amount_cents:'4001',p_refund_of:winner.id,p_reason:'Estorno isolado'};
+      const refunds=await Promise.all([producer.rpc('record_finance_entry',refund),rival.rpc('record_finance_entry',{...refund,p_id:randomUUID()})]);assert.equal(refunds.filter(r=>!r.error).length,1);assert.equal(refunds.filter(r=>r.error?.code==='22023').length,1);
+      const detail=await producer.rpc('finance_project_detail',{p_project_id:id,p_offset:0});assert.equal(detail.error,null);assert.equal(detail.data.net_cents,'2000');
+      for(const table of ['project_contracts','contract_history','finance_entries']){const result=await other.from(table).select('*');assert.equal(result.error,null);assert.deepEqual(result.data,[]);}
+      const rejected=await other.rpc('finance_snapshot',{p_month:'2020-01-01'});assert.equal(rejected.error?.code,'42501');
+    });
   } finally {
     console.info(`Registros de teste para remover pelo SQL Editor: ${id}, ${id2}`);
     await producer.auth.signOut();await other.auth.signOut();await rival.auth.signOut();

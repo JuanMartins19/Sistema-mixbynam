@@ -1,72 +1,57 @@
-# Verificação — acompanhamento e agenda — 14/10/2026
+# Verificação — clareza, consultas, agenda mensal e financeiro
 
-## Executado
+Data da execução: 14/10/2026. Resultados desta versão; não são herdados de outra execução.
 
-- `npm test`: **39 verificações passaram, zero falhas**, em execução nova desta versão. Inclui os 18 testes anteriores e os testes de acompanhamento/agenda. Migrações 001, 002 e 003 executadas integralmente em PostgreSQL isolado via PGlite.
-- `npm run test:e2e`: **3 testes passaram** no Edge headless instalado neste computador. Formulário/validação/retry sem configuração e layouts 320/390/1440 px preservados.
-- `npm run test:e2e:producer`: **2 testes passaram** no Edge headless: acompanhamento manual, fila, Não contatar, backup v2, agenda móvel, conflito, edição, consecutividade e cancelamento. Uma execução adicional do teste de agenda confirmou que o arquivo JSON baixado inclui as sessões criadas e canceladas.
-- `npm run build`: **passou**, Next.js 16.4.0, incluindo compilação TypeScript e páginas `/` e `/produtor`. Configuração Netlify mantém `.next` e Node 22.
-- `npm run typecheck`: passou novamente **após o build final**, sem erros de TypeScript.
-- Não foram adicionadas dependências ou serviços externos. A auditoria de dependências não foi executada nesta atualização; nenhum resultado de outra execução é usado como prova de segurança desta versão.
+## Executado neste ambiente
 
-Os testes precisaram de execução fora da sandbox devido ao bloqueio `spawn EPERM` do Windows. As primeiras tentativas identificaram comparação de objetos Date no teste, incompatibilidade de módulos no helper do Playwright e overflow móvel causado por um elemento de acessibilidade da tabela. Foram corrigidos e as execuções descritas acima passaram. O diretório `.next-e2e` isola os testes do servidor local em `.next`.
+- `npm test`: **56 verificações passaram, zero falhas**, incluindo as 40 anteriores. PostgreSQL isolado PGlite executou as migrações 001→005.
+- `npm run test:e2e`: **3 testes passaram**, Edge headless, servidor de desenvolvimento isolado: formulário/validação/retry sem confirmação falsa; acesso público sem dados; layouts 320/390/1440 px.
+- `npm run test:e2e:producer`: os **cinco cenários privados foram aprovados** em desenvolvimento. Quatro passaram na execução conjunta; o cenário desktop foi corrigido para solicitar explicitamente sua fixture e reexecutado com sucesso. Cobertura: atendimento manual, fila, backup v3, agenda/conflito/cancelamento, mensal, financeiro móvel em 320 px, erro sem zeros, carregamento/vazio, controles úteis, renovação de token e rascunhos preservados.
+- Build de produção com configuração de teste passou para medição. O build normal final passou, restabelecendo configuração local em .next. TypeScript passou novamente após esse build, sem erros, incluindo o script de planos.
+- Medição antes/depois passou em **produção local** com Next start e backend PGlite + dublê de Auth/HTTP. Não é medição de Supabase remoto.
+- `scripts/inspect-test-plans.ts` executado em fixture PGlite com 2.000 lançamentos de 1 centavo: os filtros mensal e de estorno escolheram Index Scan. [Planos](docs/query-plans.txt).
+- Nenhum serviço/dependência paga foi adicionado. Não houve auditoria npm nesta atualização; não é afirmada ausência de vulnerabilidades com base em outra execução.
 
-## Cobertura do banco
+O Windows requer execução fora da sandbox para processos de testes/build. Falhas intermediárias foram corrigidas: anotação de UUID no teste, seletores antigos dos textos/cancelamento, substituições com acentos no pipe do PowerShell e fixture desktop que não era solicitada. Mensagens de erro `TEST_FAILURE`, configuração ausente e `23P01` nos logs pertencem a cenários deliberados de falha/conflito; não foram expostas credenciais.
 
-1. Contato e autorização persistem na primeira etapa com estado incompleto.
-2. Repetir o salvamento usa o mesmo identificador e mantém um registro.
-3. Acesso público direto para leitura/escrita é negado.
-4. Segredo incorreto não recupera nem sobrescreve respostas.
-5. Identificador público não funciona como credencial de retomada.
-6. Pular etapas ou omitir autorização é rejeitado.
-7. Avançar atualiza o mesmo registro; revisar etapa anterior preserva respostas posteriores e progresso.
-8. Concluir confirma estado e data no banco; retries não alteram a conclusão.
-9. Outro projeto com o mesmo telefone gera outro registro.
-10. Usuário autenticado não autorizado não recebe contatos nem respostas.
-11. Somente UUID do produtor configurado recebe todos os pedidos; não recebe permissão de exclusão direta.
+## Medições antes/depois
 
-Também foram preservadas validações de referências/tipo de beat, orçamento com orientação, remoção de campos ocultos, composição do link de WhatsApp e neutralização de fórmulas no CSV.
+Build otimizado local, navegador Edge, um pedido concluído e uma sessão no dia. Sessão nova por execução, IDs com mesmo tamanho. Os quatro trechos usam as mesmas ações. Contabiliza REST do Supabase no teste; exclui Auth, assets, cabeçalhos, compressão e protocolo. Não mede latência/SLA, conversão de visitantes nem carga representativa.
 
-## Acompanhamento validado
+| Trecho | Chamadas antes → depois | Bytes de resposta JSON antes → depois |
+| --- | --- | --- |
+| Login e lista inicial | 3 → 2 | 932 → 284 |
+| Abrir atendimento | 2 → 1 | 4 → 958 |
+| Salvar acompanhamento | 4 → 1 | 1.841 → 624 |
+| Voltar à agenda já consultada | 1 → 0 | 1.224 → 0 |
+| Soma dos quatro trechos | 10 → 4 | 4.001 → 1.866 |
 
-- Incompleto recente fica fora da recuperação; **limite exato de 24h entra**, usando `now()` constante em transação de teste. Limite configurável de 25h também exercitado.
-- Próxima ação vencida entra; concluído sem contato confirmado entra. Nota interna isolada não comprova atendimento.
-- Situação comercial, histórico e próxima ação ficam separados das respostas. Alterações do produtor preservam `projects.updated_at`; atualização do artista modifica somente seus dados/relógio e não altera a situação comercial.
-- Não contatar exclui das filas e bloqueia registro de novo contato. No navegador, o link do WhatsApp fica oculto para esse estado.
-- Cliques/retries de acompanhamento e registros manuais mantêm um evento por UUID. Revisão antiga é rejeitada; próxima ação fica preservada após contato.
-- Visitante e outra conta autenticada não leem/escrevem acompanhamento ou histórico. RPCs verificam autorização no banco.
-- Abrir WhatsApp no navegador de teste não cria contato; confirmação manual cria evento com data/hora. Nenhuma mensagem real foi enviada.
+Login fazia duas chamadas is_producer; depois fez uma. Abrir atendimento antes baixava apenas acompanhamento/histórico (as respostas completas já vinham na lista); depois baixa respostas sob demanda e histórico agrupado, por isso esse trecho cresce em bytes. Salvar depois recebe tracking/evento na própria escrita, sem três releituras. A volta à agenda dentro do TTL usa memória. A primeira visita à agenda e a navegação intermediária de volta aos contatos não fazem parte da soma; a medição de retorno não equivale ao custo total de toda a navegação.
 
-## Agenda validada
+Corpos de requisição dos quatro trechos: 339 → 316 bytes. Um único cenário/execução por versão; pequenas diferenças de timestamps podem alterar bytes. [Dados da medição](docs/performance.json) contêm apenas contagens, caminhos de endpoints e descrição da fixture, sem respostas de clientes ou credenciais. Não há afirmação de melhora de conversão ou desempenho remoto.
 
-- Início/fim `timestamptz`, fim posterior e rejeição de infinito.
-- Sobreposição parcial, contida, igual e entre projetos diferentes é rejeitada pela constraint GiST. Horários anteriores e consecutivos são permitidos.
-- Repetição da criação preserva PK/data; edição respeita conflito e versão de outra janela.
-- Cancelamento mantém o registro e libera o horário; reativação conflitante é rejeitada.
-- Chamadas `Promise.all` ao PostgreSQL isolado deixam uma sessão e uma falha. O catálogo confirma constraint de exclusão `producer_sessions_no_overlap`.
-- PGlite **serializa as transações**. Esse resultado não demonstra duas conexões PostgreSQL realmente simultâneas: o teste remoto com dois clientes foi preparado e permanece pendente.
-- Visitante/outra conta não leem nem alteram sessões por tabelas ou RPC. Produtor só altera pelas RPCs validadas; formulário público não agenda nem recebe dados privados de agenda/acompanhamento.
-- Conversão usa America/Sao_Paulo, semana começa segunda-feira e sessão atravessando meia-noite aparece nos dias correspondentes.
-- Navegador móvel: criação, erro de conflito com respostas preservadas, consecutividade, edição de status, cancelamento e visão semanal sem overflow.
+## Dados, saldos e segurança verificados
 
-## Exportação e limites dos testes de navegador
+- Contrato não é inferido do orçamento, conclusão ou Fechado. Sem contrato, recebimento é rejeitado.
+- Valores inteiros: contrato 100,01, recebimento 33,33 e estorno 0,33 resultam em líquido 33,00/saldo 67,01. Parser rejeita terceira casa decimal e valores fora do limite.
+- Retry de contrato/lançamento preserva um registro. Histórico mantém motivo e versão; revisão antiga é rejeitada.
+- Estorno respeita recebimento original e líquido. Recebimento não ultrapassa contrato; redução abaixo do líquido é bloqueada.
+- Dois Promise.all locais para recebimento/estorno deixam apenas uma operação quando ambas excederiam o limite. PGlite serializa: **não comprova duas conexões reais concorrentes**.
+- Virada mensal em Brasília: 02:59:59Z e 03:00:00Z pertencem a meses diferentes no caso sem DST testado. Estorno em mês posterior produz valor negativo naquele mês e não modifica a entrada histórica.
+- Saldo vencido considera data anterior ao hoje local. Saldos são globais; indicadores mensais usam suas datas explícitas. Recebido não é apresentado como lucro; despesas/taxas ausentes são informadas.
+- RLS/privilégios/RPCs negam financeiro e detalhes a visitante e outra conta. Escrita direta/DELETE de lançamentos é negada; operações públicas do artista preservadas.
+- Fechado, Perdido e Não contatar são excluídos da recuperação, também na RPC legada. Histórico permanece.
+- Calendário mensal cobre 28/29/30/31 dias, virada dezembro/janeiro e sessão entre dias. Bloqueio de sobreposição, consecutividade, cancelamento e versão de edição anteriores foram preservados e testados.
+- Cache deduplica chamadas simultâneas, expira na borda de 60s, invalida, limpa por usuário/logout e rejeita resposta em voo de escopo anterior. Abas inativas não consultam; sem polling contínuo.
+- Browser: uma is_producer no login; renovação simulada não apaga edição. Volta a período já consultado usa cache; mês não faz uma consulta por dia. Desktop e celular preservam rascunhos ao alternar abas.
+- Carregamento/ausência/falha são distintos. Falha provocada de snapshot remove indicadores, sem substituir por zeros. Backup JSON v3 baixado contém contrato e os dois lançamentos, além dos domínios anteriores.
 
-JSON v2 baixado no teste inclui pedidos, acompanhamento, histórico e sessões (inclusive canceladas), com `backup_scope: application_records_only`. CSV anterior foi preservado. Exportação não inclui chaves privadas de retomada e não substitui backup de banco/Auth.
+## Limites e pendências externas
 
-Os testes privados usam **dublê de Auth/HTTP exclusivamente no teste**, domínio `.invalid` e migrações reais em PGlite. Não testam assinatura de JWT pelo Supabase, comportamento remoto do PostgREST ou publicação. O WhatsApp é interceptado. Nenhuma fixture faz parte da persistência/rotas da aplicação.
+Fixtures privadas têm autenticação/HTTP simulados e PostgreSQL real compilado para WASM. Não comprovam assinatura/renovação pelo Supabase Auth, transporte PostgREST, desempenho remoto ou hospedagem Netlify. Chamadas aos domínios reais Supabase são bloqueadas nesses testes. A aplicação continua persistindo somente no Supabase; nenhum backend fictício foi incluído no site.
 
-## Pendente de configuração externa
+Nenhuma migração/escrita foi feita no Supabase remoto nesta entrega. `.env.local` e o acesso master existentes foram preservados. Não há `.env.test.local` dedicado, portanto `test:integration` **não foi executado**. Foi ampliado para duas conexões autenticadas concorrentes criando pagamentos/estornos, além de agenda e formulário. Usa exclusivamente projeto separado, recusa hostname de `.env.local` e exige confirmação de isolamento.
 
-Nesta atualização não foram feitas chamadas de teste ou escritas no Supabase de produção nem deploy no Netlify. A configuração local existente foi preservada; a conexão/formulário de outra versão não valida as novas tabelas/RPCs.
+Para aplicar num banco já com 001–003, executar **somente 004 → 005**, após backup e teste separado. Não reaplicar migrações existentes. Validar RLS direto, concorrência financeira real, períodos/fuso e JSON v3 no Supabase de teste. Publicação e aceite do endereço Netlify Free permanecem pendentes.
 
-`npm run test:integration` foi ampliado para Supabase **separado**, com as três migrações, produtor e outra conta previamente criados. Inclui API direta, oito chamadas concorrentes ao formulário, acompanhamento/histórico e **dois clientes autenticados criando sessões conflitantes**; depois testa cancelamento, horário liberado e consecutividade. Recusa hostname igual ao `.env.local` e exige `TEST_CONFIRM_ISOLATED_PROJECT=yes`. Não foi executado: `.env.test.local` e projeto dedicado de teste não estão configurados. Não exige chave de serviço nem exclui dados automaticamente.
-
-Antes de atualizar o ambiente remoto existente, aplicar **somente 002 → 003** se 001 já estiver aplicada; nunca reaplicar 001. Validar login real, RLS/GRANTs na API remota, migrações, concorrência entre conexões, exportações e publicação Netlify Free em ambiente de teste. Nenhum sucesso externo desta versão é afirmado.
-
-O roteiro manual completo está em [README.md — Roteiro manual de aceite](README.md#roteiro-manual-de-aceite-em-projeto-de-teste). Inclui recuperação de contato, inatividade sem intervenção do produtor, atendimento manual, agenda/conflitos, contas não autorizadas e backup. Financeiro e links de entrega continuam para a próxima implementação.
-
-## Configuração administrativa do produtor master
-
-Adicionado `supabase/setup/configure_master.sql`, com placeholder de e-mail e sem senha. Uma verificação adicional executada com `tsx --test tests/master-setup.test.ts` passou: conta inexistente ou não confirmada é rejeitada; conta confirmada substitui o UUID anterior e mantém exatamente um produtor autorizado. Esse teste usou PostgreSQL isolado; a suíte de 39 testes acima não foi repetida nesta alteração administrativa.
-
-Na tentativa de login remoto solicitada pelo usuário, Supabase Auth retornou `invalid_credentials` (HTTP 400). Isso não identifica, por si só, se a conta é inexistente ou a senha é diferente. Não foi criado usuário nem alterada autorização no banco remoto. Credenciais foram fornecidas ao processo apenas por stdin protegido, sem gravação em arquivo/repositório ou exposição no resultado. A criação da conta confirmada e execução do setup como postgres no Dashboard permanecem necessárias para ativar o master.
+Veja [README — Roteiro manual de aceite](README.md#roteiro-manual-de-aceite-em-projeto-de-teste) e definições dos indicadores. Exportação da aplicação não substitui backup de banco/Auth. Arquivos musicais permanecem externos; links de entrega continuam para próxima implementação.

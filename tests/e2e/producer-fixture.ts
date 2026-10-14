@@ -3,11 +3,13 @@
 import { test as base, expect } from '@playwright/test';
 import { testDatabase } from '../helpers/database';
 import type { PGlite } from '@electric-sql/pglite';
-type Fixture={backend:{db:PGlite;projectId:string}};
+type Fixture={backend:{db:PGlite;projectId:string;traffic:{path:string;request_bytes:number;response_bytes:number}[]}};
 export const test=base.extend<Fixture>({
   backend:async({context},use)=>{
-    const {db,project,producer}=await testDatabase(['001_projects.sql','002_contact_followup.sql','003_producer_schedule.sql']);
+    const {db,project,producer}=await testDatabase(['001_projects.sql','002_contact_followup.sql','003_producer_schedule.sql','004_manual_finance.sql','005_producer_queries.sql']);
     const p=await project(true);
+    const traffic:{path:string;request_bytes:number;response_bytes:number}[]=[];
+    await context.route(/^https:\/\/[^/]+\.supabase\.co\//,route=>route.abort('blockedbyclient'));
     const user={id:producer,aud:'authenticated',role:'authenticated',email:'producer@example.test',app_metadata:{provider:'email',providers:['email']},user_metadata:{},created_at:new Date().toISOString()};
     const jwt=(obj:unknown)=>Buffer.from(JSON.stringify(obj)).toString('base64url');
     const token=`${jwt({alg:'HS256',typ:'JWT'})}.${jwt({sub:producer,role:'authenticated',aud:'authenticated',exp:Math.floor(Date.now()/1000)+3600})}.test-signature`;
@@ -20,6 +22,17 @@ export const test=base.extend<Fixture>({
         }else if(url.pathname.startsWith('/rest/v1/rpc/')){
           const rpc=url.pathname.split('/').at(-1)!;const args=request.postDataJSON()??{};
           const mapping:Record<string,{sql:string;keys:string[]}>= {
+            
+            producer_contacts:{sql:'select public.producer_contacts($1,$2,$3,$4) as r',keys:['p_filter','p_offset','p_limit','p_inactivity_hours']},
+            producer_contact_detail:{sql:'select public.producer_contact_detail($1) as r',keys:['p_id']},
+            producer_history:{sql:'select public.producer_history($1,$2,$3) as r',keys:['p_project_id','p_before','p_before_id']},
+            producer_update_tracking:{sql:'select public.producer_update_tracking($1,$2,$3,$4,$5,$6) as r',keys:['p_project_id','p_operation_id','p_status','p_next_action','p_return_at','p_expected_revision']},
+            producer_agenda:{sql:'select public.producer_agenda($1,$2) as r',keys:['p_start','p_end']},
+            producer_find_projects:{sql:'select public.producer_find_projects($1,$2) as r',keys:['p_search','p_offset']},
+            finance_snapshot:{sql:'select public.finance_snapshot($1) as r',keys:['p_month']},
+            finance_project_detail:{sql:'select public.finance_project_detail($1,$2) as r',keys:['p_project_id','p_offset']},
+            save_project_contract:{sql:'select public.save_project_contract($1,$2,$3,$4,$5,$6,$7) as r',keys:['p_project_id','p_operation_id','p_amount_cents','p_contracted_on','p_due_on','p_expected_revision','p_reason']},
+            record_finance_entry:{sql:'select public.record_finance_entry($1,$2,$3,$4,$5,$6,$7,$8) as r',keys:['p_project_id','p_id','p_kind','p_amount_cents','p_occurred_at','p_method','p_reason','p_refund_of']},
             is_producer:{sql:'select public.is_producer() as r',keys:[]},
             list_producer_projects:{sql:'select public.list_producer_projects($1,$2,$3,$4) as r',keys:['p_filter','p_offset','p_limit','p_inactivity_hours']},
             save_contact_tracking:{sql:'select public.save_contact_tracking($1,$2,$3,$4,$5,$6) as r',keys:['p_project_id','p_operation_id','p_status','p_next_action','p_return_at','p_expected_revision']},
@@ -30,7 +43,7 @@ export const test=base.extend<Fixture>({
           data=(await db.query<{r:unknown}>(m.sql,m.keys.map(k=>args[k]??null))).rows[0].r;
         }else {
           const table=url.pathname.split('/').at(-1)!;
-          const allowed=['projects','contact_tracking','contact_history','producer_sessions'];
+          const allowed=['projects','contact_tracking','contact_history','producer_sessions','project_contracts','contract_history','finance_entries'];
           if(!allowed.includes(table))throw new Error('Tabela desconhecida no teste.');
           const related=url.searchParams.get('select')?.includes('projects(');
           const result=await db.query<{r:Record<string,unknown>}>(related
@@ -46,10 +59,12 @@ export const test=base.extend<Fixture>({
           }
           data=rows;
         }
-        await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data)});
+        const body=JSON.stringify(data);
+        if(url.pathname.startsWith('/rest/'))traffic.push({path:url.pathname,request_bytes:Buffer.byteLength(request.postData()||''),response_bytes:Buffer.byteLength(body)});
+        await route.fulfill({status:200,contentType:'application/json',body});
       }catch(e){const error=e as {code?:string;message?:string};await route.fulfill({status:error.code==='42501'?403:400,contentType:'application/json',body:JSON.stringify({code:error.code||'TEST_ERROR',message:error.message,details:null,hint:null})});}
     });
-    try{await use({db,projectId:p.id});}finally{await db.close();}
+    try{await use({db,projectId:p.id,traffic});}finally{await db.close();}
   },
 });
 export { expect };

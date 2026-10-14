@@ -10,7 +10,8 @@
     "test": "tsx --test tests/*.test.ts",
     "test:integration": "tsx --env-file=.env.test.local --test tests/integration/*.test.ts",
     "test:e2e": "playwright test",
-    "test:e2e:producer": "playwright test --config=playwright.producer.config.ts"
+    "test:e2e:producer": "playwright test --config=playwright.producer.config.ts",
+    "test:measure": "playwright test --config=playwright.measure.config.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.117.3",

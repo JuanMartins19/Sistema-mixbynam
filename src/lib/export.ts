@@ -5,6 +5,9 @@ export function backupV2(exportedAt:string,projects:Project[],tracking:ContactTr
   return {format:'mixbynam-export',version:2,exported_at:exportedAt,time_zone:'America/Sao_Paulo',
     backup_scope:'application_records_only',projects,contact_tracking:tracking,contact_history:history,producer_sessions:sessions};
 }
+export function backupV3(exportedAt:string,projects:Project[],tracking:unknown[],history:unknown[],sessions:unknown[],contracts:unknown[],contractHistory:unknown[],entries:unknown[]){
+  return {...backupV2(exportedAt,projects,tracking as ContactTracking[],history as ContactHistory[],sessions as ProducerSession[]),version:3,project_contracts:contracts,contract_history:contractHistory,finance_entries:entries};
+}
 export function csvCell(value: unknown) {
   let text = value == null ? '' : typeof value === 'object' ? JSON.stringify(value) : String(value);
   // Neutraliza fórmulas também após espaços/control characters (Excel/LibreOffice).

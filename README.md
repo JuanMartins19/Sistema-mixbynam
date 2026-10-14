@@ -1,34 +1,28 @@
-# Mixbynam — MVP de produções musicais
+﻿# Mixbynam — formulário, contatos, agenda e financeiro
 
-Next.js + TypeScript + Supabase, preparado para Netlify Free e endereço gratuito `nome-do-site.netlify.app`. Artistas não criam conta. Formulário público, acompanhamento privado de contatos e agenda manual do produtor. Nenhum serviço pago, API de WhatsApp, envio automático, gateway ou upload de áudio.
+Next.js + TypeScript + Supabase Free, preparado para Netlify Free e subdomínio `nome-do-site.netlify.app`. O artista não cria conta. O produtor master é previamente cadastrado. Pagamentos são externos e conferidos manualmente; o site não envia mensagens, não processa pagamentos e não recebe áudio.
 
-## Entrega
+## Funcionalidades
 
-- Formulário público em quatro etapas, responsivo e em português.
-- Etapa 1 salva contato e autorização explícita (texto, versão e horário do banco), incluindo atendimento de pedidos incompletos.
-- Cada avanço atualiza o mesmo registro. Pedidos são identificados por UUID aleatório, nunca pelo telefone. Cliques e retries usam a mesma chave; projetos diferentes com o mesmo telefone ficam separados.
-- Respostas permanecem na tela ao voltar ou após falha. A confirmação só aparece quando a RPC retorna `completed`, depois da transação. Ao concluir, resumo e link `wa.me` com identificador público. O artista ainda precisa enviar a mensagem; nenhum clique é registrado como envio.
-- `/produtor`: login por senha, acesso de um único produtor previamente cadastrado, listagem paginada e respostas completas. Filtros Todos, Retomar contato, Sem atendimento, Concluídos e Incompletos.
-- Acompanhamento separado: situação comercial, próxima ação/data de retorno, notas internas e histórico de contatos confirmados manualmente.
-- Agenda diária/semanal, criação, edição e cancelamento manual de sessões relacionadas a um pedido. Horários de Brasília e conflito impedido pelo banco.
-- JSON **v2** inclui todos os pedidos, acompanhamento, histórico e sessões. CSV preserva a exportação de respostas dos pedidos e neutraliza fórmulas. Não inclui segredos de retomada. Exportação de registros não substitui backup completo de banco/Auth.
+- Formulário em quatro etapas, com introdução curta no celular, perguntas diretas e ações Continuar / Enviar pedido.
+- Nome artístico e WhatsApp no início; e-mail opcional. Autorização explícita para atender inclusive pedidos incompletos, com texto, versão e horário registrados.
+- Salvamento no Supabase a cada avanço, mesmo UUID nas tentativas, respostas preservadas ao voltar ou após erro. Identificação por projeto, sem mesclar telefones iguais. Confirmação somente após conclusão confirmada pelo banco.
+- Confirmação orienta sobre análise e contato do produtor. WhatsApp abre mensagem preenchida; o artista precisa enviá-la. Resumo e identificador ficam em uma seção expansível.
+- Painel privado: Contatos, Agenda e Financeiro. Cartões de contatos no celular e desktop, com artista, serviços, situação comercial e próximo retorno. Respostas, autorização e identificador ficam no atendimento.
+- Histórico de atendimento paginado, notas internas e confirmação manual de contato. Abrir WhatsApp não registra contato nem envio.
+- Agenda diária, semanal e mensal; seleção de dia no mês, edição e cancelamento no editor. Formulário público não agenda. Sessões canceladas são distintas e liberam horário.
+- Financeiro com contrato explícito, data de contratação, vencimento opcional, recebimentos parciais e estornos vinculados ao recebimento original. Histórico imutável e motivo nos ajustes.
+- JSON v3 exporta dados da aplicação; CSV mantém respostas dos pedidos. Sem metas, projeções ou indicadores inventados.
 
-## 1. Ambiente local
+## Configuração local
 
-**Neste computador Windows**, o Node portátil e as dependências já foram preparados. Para iniciar, dê dois cliques em `iniciar.cmd` ou execute `.\iniciar.cmd` no terminal do projeto. Mantenha a janela aberta e acesse `http://127.0.0.1:3000`. “Conexão recusada” significa que o navegador não conseguiu alcançar um servidor nessa porta; verifique se o terminal mostra `Ready` e se o endereço está correto. O banco não precisa estar configurado para visualizar a primeira etapa.
-
-O arquivo `.env.local` deste computador está ignorado pelo Git e pode já estar preenchido: preserve seus valores. Para nova instalação, copie `.env.example` apenas quando ainda não houver `.env.local`. Após alterar a configuração, reinicie o servidor (Ctrl+C e `iniciar.cmd` novamente). Não inicie dois servidores na mesma porta.
-
-Instale Node.js 22 ou superior. Na raiz:
+Node.js 22 ou superior:
 
 ```sh
 npm ci
-cp .env.example .env.local
 ```
 
-No PowerShell, use `Copy-Item .env.example .env.local`.
-
-Preencha somente estas variáveis para a aplicação:
+Copie `.env.example` para `.env.local` somente se ainda não houver configuração. No Windows: `Copy-Item .env.example .env.local`. Preserve um arquivo já preenchido.
 
 ```dotenv
 NEXT_PUBLIC_SUPABASE_URL=https://SEU-PROJETO.supabase.co
@@ -37,162 +31,138 @@ NEXT_PUBLIC_PRODUCER_WHATSAPP=SEU-NUMERO-INTERNACIONAL
 NEXT_PUBLIC_PRODUCER_NAME=NOME-DO-PRODUTOR
 ```
 
-Copie URL e chave **anon/publishable** das configurações de API do projeto. O número do WhatsApp deve ter apenas dígitos, código do país, DDD e número. Nunca colocar `service_role`, chaves secretas ou senhas em `NEXT_PUBLIC_*`. Essas variáveis são públicas e entram no bundle; a segurança dos registros está nas políticas e RPCs do banco.
+A chave pode ser publishable/anon; nunca secret/service_role. Número: país + DDD + número, somente dígitos. A senha do produtor não fica no código, SQL ou `.env.local`.
 
 ```sh
 npm run dev
 ```
 
-Abra `http://localhost:3000`. Sem configuração, o site apresenta erro de salvamento; não há dados simulados nem confirmação fictícia. Sem número válido do produtor, o pedido continua salvo e a confirmação explica a ausência do botão do WhatsApp.
+Neste Windows, `iniciar.cmd` usa o Node portátil preparado em `.tools`, quando disponível. Mantenha a janela aberta. Abra `http://127.0.0.1:3000`; painel em `/produtor`. Conexão recusada indica que o servidor não está acessível nessa porta. Sem Supabase configurado, a interface mostra indisponibilidade e não inventa salvamento. Detalhes técnicos ficam nos logs, sem credenciais/respostas.
 
-## 2. Supabase Free e migração
+## Migrações e produtor master
 
-1. Crie uma organização/projeto no plano **Free**, sem contratar plano pago.
-2. No SQL Editor, execute as migrações integralmente, uma vez cada, nesta ordem:
-   - [001_projects.sql](supabase/migrations/001_projects.sql): formulário e acesso do produtor.
-   - [002_contact_followup.sql](supabase/migrations/002_contact_followup.sql): acompanhamento, histórico e fila.
-   - [003_producer_schedule.sql](supabase/migrations/003_producer_schedule.sql): agenda e exclusão de sobreposições.
-   **Se 001 já foi aplicada, execute somente 002 e depois 003.** Não sobrescreva nem reaplique 001. As migrações são transacionais e preservam os pedidos existentes. Faça backup administrativo antes de atualizar um banco com dados. A nova interface privada depende de 002/003; em caso de ausência, mostra erro explícito.
-3. Em Authentication → Providers, habilite e-mail/senha e **desabilite “Allow new users to sign up”**. Não habilite login anônimo. O site não oferece cadastro.
-4. Em Authentication → Users, use **Add user → Create new user** para criar o produtor com senha forte e e-mail confirmado (**Auto Confirm User**). Isso dispensa convite e envio de e-mail. Não adicione envio SMTP ao MVP.
-5. Copie o UUID desse usuário e execute no SQL Editor, substituindo o placeholder:
+Execute como postgres no SQL Editor, uma vez e em ordem:
 
-```sql
-insert into private.producer(singleton, user_id)
-values (true, 'UUID-DO-USUARIO-PRODUTOR'::uuid)
-on conflict (singleton) do update set user_id = excluded.user_id;
-```
+1. [001_projects.sql](supabase/migrations/001_projects.sql): formulário e autorização original.
+2. [002_contact_followup.sql](supabase/migrations/002_contact_followup.sql): acompanhamento e histórico.
+3. [003_producer_schedule.sql](supabase/migrations/003_producer_schedule.sql): agenda e conflito de horários.
+4. [004_manual_finance.sql](supabase/migrations/004_manual_finance.sql): contratos, lançamentos e indicadores.
+5. [005_producer_queries.sql](supabase/migrations/005_producer_queries.sql): projeções pequenas, detalhe agrupado, consultas da agenda e recuperação corrigida.
 
-Só esse UUID pode consultar pedidos. Uma outra conta, mesmo autenticada, recebe zero registros. Para trocar produtor, repita o comando com o novo UUID. Não conceda permissões pelo e-mail, telefone ou metadata editável do usuário.
+**Se 001–003 já foram aplicadas, execute somente 004 e depois 005.** Não reaplique as anteriores. As migrações novas são transacionais e não alteram as respostas existentes. Faça backup administrativo antes de atualizar um ambiente com dados. Publique a interface nova somente após aplicar suas migrações.
 
-Esse único produtor é o **usuário master da aplicação**, com acesso aos contatos, acompanhamento, agenda e exportações. Isso não concede papel administrativo do Supabase nem ignora as políticas do banco. Para configurar pelo e-mail da conta previamente criada, use [configure_master.sql](supabase/setup/configure_master.sql) no SQL Editor como postgres, substituindo apenas `EMAIL-DO-PRODUTOR`. O script exige uma conta única com e-mail confirmado e configura seu UUID em `private.producer`; substitui qualquer produtor anteriormente configurado e retorna a conta autorizada para conferência. Não armazene senha em SQL, código ou `.env.local`. Mantenha cadastro público desabilitado em Authentication.
+Em Authentication, mantenha e-mail/senha ativo, cadastro público e login anônimo desabilitados. Crie o produtor em Users → Add user → Create new user, com Auto Confirm User, sem convite por e-mail. Execute [configure_master.sql](supabase/setup/configure_master.sql), substituindo o placeholder pelo e-mail da conta criada. O script mantém um único UUID em `private.producer`; não concede papel administrativo do Supabase. Outra conta, mesmo autenticada, não recebe os dados.
 
-Para recuperar acesso, o responsável pelo Supabase deve atualizar a senha no Dashboard. Este MVP não envia recuperação automática por e-mail. Configure o Site URL em Authentication → URL Configuration para o endereço definitivo do Netlify; o login por senha não usa redirecionamento.
+Recuperação de senha é administrativa pelo Dashboard; não há envio automático de e-mail. Nenhuma senha de exemplo real deve entrar no repositório.
 
-### Acompanhamento e recuperação
+## Recuperação e atendimento
 
-Progresso do formulário, situação comercial e histórico são estruturas independentes. `projects.updated_at` continua sendo a última atualização confirmada do artista: registrar uma nota, alterar situação comercial ou criar sessão não modifica esse relógio.
+`projects.updated_at` representa a última atualização confirmada do artista. Alterações de atendimento, sessões ou financeiro não modificam esse relógio. Situação comercial e histórico são separados das respostas.
 
-A fila **Retomar contato** inclui, pela hora do banco, qualquer pedido com uma destas condições: incompleto sem atualização há **pelo menos 24 horas**; próxima ação vencida; concluído sem registro manual de contato. A regra é `INACTIVITY_HOURS` em `src/lib/followup.ts`, passada à RPC; alterar essa constante muda o limite e o texto. No limite exato de 24h o pedido entra. A interface usa “Incompleto há mais de 24 horas”; nunca afirma abandono. Atualizações recentes do artista retiram a condição de inatividade; outras condições ainda podem manter o pedido na fila.
+Retomar contato inclui incompletos sem atualização há **pelo menos 24h**, ações vencidas e concluídos sem contato manual. `INACTIVITY_HOURS` em `src/lib/followup.ts` configura o limite; a RPC usa a hora do banco. Um incompleto recente pode ainda estar em preenchimento. A interface não afirma abandono.
 
-Situações comerciais: Novo, Em contato, Proposta enviada, Fechado, Perdido e Não contatar. **Não contatar fica fora das filas Retomar contato e Sem atendimento**, mesmo com retorno vencido. Continua disponível em Todos. O link do WhatsApp é bloqueado enquanto essa situação estiver salva.
+**Fechado, Perdido e Não contatar ficam fora de Retomar contato e Sem atendimento.** Histórico é preservado. Compromissos de produção de clientes fechados devem ser acompanhados na agenda. Não contatar também bloqueia WhatsApp e novo registro de contato.
 
-O filtro **Sem atendimento** mostra pedidos sem contato confirmado, inclusive incompletos recentes, exceto Não contatar. Nota interna, mudança comercial e clique no WhatsApp não contam como contato realizado. O botão só abre mensagem preenchida para o artista; envio e registro de atendimento são manuais. Telefones brasileiros de 10/11 dígitos recebem prefixo 55 no link; números internacionais válidos são preservados.
+Situações: Novo, Em contato, Proposta enviada, Fechado, Perdido, Não contatar. Formulário concluído não significa venda fechada, sessão realizada ou pagamento recebido. Notas e cliques não comprovam contato. Próxima ação e data de retorno são preenchidas juntas; contato manual não apaga a ação automaticamente. Revisão protege alterações de outra janela. UUID de operação impede duplicação por retry.
 
-Para registrar contato, selecione “Contato realizado”, descreva a conversa e confirme a pergunta. O histórico guarda horário do registro no banco e o usuário responsável. Notas e mudanças de situação/retorno também aparecem no histórico, que é imutável pela API. Próxima ação e data/hora de retorno devem ser preenchidas juntas ou ambas removidas; registrar atendimento não apaga a próxima ação automaticamente. A data é interpretada em Brasília, mesmo se o navegador estiver em outro fuso.
+A chave de retomada do artista fica em sessionStorage, apenas para identificar seu pedido. As respostas persistem no Supabase. Recarregar recupera etapas confirmadas; respostas não salvas se perdem. Fechar a aba encerra a recuperação pelo artista, mantendo o contato no painel. Identificador público não é credencial. A chave secreta não aparece em WhatsApp nem exportações.
 
-UUID de operação protege registros contra duplicação por clique/retry. Revisão do acompanhamento impede sobrescrever uma alteração de outra janela: recarregue antes de salvar novamente. Não há fallback para localStorage ou dados simulados.
+## Agenda e cache
 
-### Agenda do produtor
+Instantes são `timestamptz`, exibidos/interpretados em America/Sao_Paulo. Semana começa segunda. O calendário mensal respeita fevereiro, anos bissextos e virada de ano; sessão entre dias aparece em ambos. Ponto indica sessão ativa, C indica cancelada. Selecionar um dia abre a visão diária.
 
-Na aba Agenda, escolha Diária ou Semanal (segunda a domingo), navegue pela data e clique em Nova sessão. Busque o pedido pelo nome artístico ou identificador público e selecione-o. Informe tipo, início, fim, observações e situação: Reservada, Confirmada, Realizada ou Cancelada. As visões semanais se organizam verticalmente no celular; sessões que atravessam meia-noite aparecem nos dias correspondentes.
+A constraint PostgreSQL `producer_sessions_no_overlap`, GiST sobre `[início,fim)`, bloqueia conflitos inclusive em transações simultâneas. Fim deve ser posterior ao início, datas infinitas são rejeitadas e 10h–11h / 11h–12h são permitidos. Cancelar mantém o registro, liberando o intervalo; reativação passa pela mesma validação. Versão protege edições concorrentes. O produtor agenda manualmente.
 
-Instantes são armazenados como `timestamptz`. A entrada/saída usa `America/Sao_Paulo`, independentemente do fuso do dispositivo. Fim deve ser posterior ao início; datas infinitas são rejeitadas. Todas as situações, exceto Cancelada, ocupam horário. Cancelar mantém o registro e libera o intervalo; reativar passa pela mesma verificação de conflitos.
+Cache **somente em memória**, máximo inicial de 60s após resposta, com deduplicação de chamadas em voo. Erros não são armazenados como resultados. Cache é limpo ao sair/trocar usuário e invalidado por alterações. Não há polling de dados nem promessa de tempo real; telas mostram horário da consulta e uma atualização manual por contexto. Renovação do token mantém estado e rascunhos.
 
-`producer_sessions_no_overlap` é uma constraint PostgreSQL `EXCLUDE USING gist` sobre `tstzrange(starts_at, ends_at, '[)')`. O intervalo inclui início e exclui fim: **10h–11h e 11h–12h são permitidos**. Há uma agenda global para o único produtor. A constraint decide conflitos atomicamente, inclusive entre transações simultâneas; a verificação visual não é a barreira de segurança. Não exige extensão adicional. Conflito `23P01` é apresentado na interface sem apagar respostas. Versão `updated_at` impede sobrescrita de uma edição simultânea (`40001`); a mesma PK evita duplicação de criação por retry.
+Apenas a aba ativa consulta dados. Abas já visitadas preservam estado, mas não fazem leituras em segundo plano. Na agenda, cache é por mês completo: dia e semana reutilizam esses dados. Semana atravessando dois meses carrega os meses ausentes numa consulta de intervalo; sessões são deduplicadas pelo UUID. Não há consulta por dia do calendário. Alterar/cancelar sessão invalida agenda e indicadores de sessões.
 
-O formulário público continua sem agendar ou confirmar sessões, e não tem acesso a essas tabelas/RPCs.
+Listas de contatos trazem campos pequenos. O atendimento agrupa respostas, acompanhamento e primeira página do histórico em uma chamada. Salvamento devolve acompanhamento/evento para atualizar a tela sem três releituras. Busca de artista é explícita pelo botão, nunca por tecla/cartão.
 
-## 3. Modelo de acesso
+## Financeiro e significado dos indicadores
 
-`public.projects` armazena respostas, progresso, situação e autorização. RLS está habilitado. `anon` não tem privilégios diretos na tabela; `authenticated` tem apenas SELECT, restrito pela política `producer_read`. Não há INSERT, UPDATE ou DELETE diretos para os clientes.
+O produtor informa o valor real combinado, **sem inferir pelo orçamento do formulário ou pela situação Fechado**. Data de contratação é obrigatória e não pode ser futura. Vencimento é opcional; sem data o saldo não entra em vencido. Valor por contrato/lançamento: 1 até 1.000.000.000.000 centavos. Centavos inteiros são armazenados em bigint; valores agregados retornam texto, formatado com BigInt no navegador, sem arredondamento binário.
 
-`private.producer` guarda o único UUID autorizado e `private.project_keys` guarda SHA-256 da chave de retomada. O schema privado e suas tabelas não têm acesso de `anon`/`authenticated` nem devem ser expostos na API. `public_id` serve para identificação na conversa e não dá acesso às respostas.
+Recebimentos positivos têm data/hora efetiva do pagamento, forma e observação opcional; datas futuras são rejeitadas. Estorno positivo referencia um recebimento, exige motivo e respeita seu restante disponível. Lançamentos não são editados ou apagados pela API. Para corrigir recebimento, registre estorno com motivo e um recebimento correto. Contratos podem ser ajustados com motivo e revisão; cada versão fica no histórico. Registro guarda também horário e autor da inclusão.
 
-`contact_tracking`, `contact_history` e `producer_sessions` têm RLS habilitado, SELECT somente para o produtor configurado e nenhum privilégio de escrita direta para clientes. Usuários autenticados não autorizados recebem zero linhas; visitantes não podem ler as tabelas. Escritas passam exclusivamente por `save_contact_tracking`, `record_contact_history` e `save_producer_session`, com checagem do produtor, validação e `search_path` vazio. `list_producer_projects` também exige o produtor. As RPCs públicas do artista não recebem nem retornam dados comerciais, histórico ou agenda. Nenhuma chave administrativa foi adicionada ao navegador.
+As RPCs serializam pelo projeto e contrato, conferindo saldo depois do lock. Recebimento não pode deixar líquido acima do contrato; estorno não pode exceder o recebimento original nem o líquido disponível. Redução de contrato abaixo do líquido é rejeitada. IDs de operação garantem idempotência. Não há gateway, API de pagamento ou envio automático.
 
-As únicas operações do artista são `save_project` e `resume_project`. Elas são `SECURITY DEFINER` com `search_path` vazio, validam entradas no PostgreSQL e exigem UUID + segredo criptográfico de 256 bits. Só os campos da etapa atual são aceitos; não é possível concluir pulando etapas, substituir uma chave existente nem editar pedido concluído. A chave primária e o bloqueio transacional impedem duplicação em chamadas concorrentes e progresso regressivo.
+O snapshot é calculado no banco em uma consulta consistente, com `queried_at`. Não são baixados todos os pagamentos para calcular cartões. Carregamento, ausência e erro são estados distintos; consulta que falha oculta indicadores e mostra erro, sem zeros substitutos.
 
-A chave de retomada fica no **sessionStorage**, só para identificar o pedido na mesma aba; respostas e contatos persistem **no Supabase**. O site recupera as etapas confirmadas do banco após recarregar. Respostas ainda não salvas se perdem ao recarregar. Fechar a aba encerra a recuperação pelo artista; os dados salvos continuam no painel para o produtor fazer contato autorizado. Bloquear armazenamento no navegador permite continuar na aba, com aviso de que não será possível retomá-la. Não existe busca pública por telefone ou identificador.
+| Indicador | Definição / período |
+| --- | --- |
+| Recebido no mês | Entradas menos estornos cuja **data efetiva informada** (`occurred_at`) cai no mês selecionado em Brasília. Pode ser negativo. Não representa lucro. |
+| Contratado no mês | Soma dos contratos com `contracted_on` no mês selecionado, segundo os valores atuais; ajustes permanecem auditáveis. |
+| Saldo a receber | Todos os contratos, na consulta: contratado menos recebimentos líquidos de estornos. |
+| Saldo vencido | Saldo positivo de todos os contratos com vencimento **anterior ao dia atual de Brasília**; vencimento hoje ainda não é vencido. |
+| Pedidos no mês | Pedidos criados no mês em Brasília, inclusive incompletos. Conta pedidos, não artistas únicos. |
+| Retornos pendentes | Todas as ações vencidas até a consulta em situações comerciais abertas; exclui Fechado, Perdido e Não contatar. |
+| Sessões agendadas | Reservadas/confirmadas com **início** no mês selecionado. Exclui realizadas e canceladas. |
+| Sessões realizadas | Status realizada, com início no mês selecionado. |
 
-Quem tiver a chave secreta da aba poderá recuperar aquele pedido, sem conta. Não compartilhe essa chave. Ela não aparece no link de WhatsApp, exportação ou interface. O shell de login é público, mas contatos e respostas são protegidos pelo banco, inclusive em chamadas diretas à API.
+Meses usam limites `[início, próximo mês)` no fuso America/Sao_Paulo. Saldos e retornos são globais, não filtrados pelo mês. Taxas e despesas não estão incluídas; nenhum número é apresentado como lucro.
 
-## 4. Publicar no Netlify Free
+Índices novos correspondem aos filtros reais: projeto/data para histórico, recebimento original para estornos, data efetiva para meses, contratação para meses e vencimento para saldo vencido. Os planos locais de fixture pequena podem usar varredura sequencial; não há afirmação de ganho de tempo SQL sem medir ambiente representativo.
 
-1. Envie código e `package-lock.json` para um repositório privado ou público, sem `.env`, `.tools`, backups ou exportações.
-2. No Netlify, escolha **Free**, importe o repositório em Add new project. Não use teste de plano pago nem habilite recarga automática.
-3. O `netlify.toml` define `npm run build`, saída `.next` e Node 22. O Netlify detecta Next.js e configura seu adaptador OpenNext; não configurar exportação estática manual nem Netlify Forms.
-4. Cadastre as quatro variáveis públicas em Project configuration → Environment variables, também disponíveis para **Builds**. Não cadastre `service_role`.
-5. Faça o deploy e escolha um nome disponível: `nome-do-site.netlify.app`. O HTTPS e subdomínio são gratuitos; domínio próprio é opcional e não necessário.
-6. Mudanças em variáveis `NEXT_PUBLIC_*` exigem novo build/deploy. Aplique a migração e cadastre o produtor **antes** de divulgar o formulário.
+## Acesso e exportação
 
-O projeto está preparado para publicação, mas a publicação e a integração remota desta versão permanecem pendentes. A existência de um `.env.local` configurado não autoriza executar testes em produção. Nesta atualização, nenhuma migração ou escrita foi realizada no Supabase remoto. Não configure `MIXBYNAM_E2E` no Netlify: é exclusivo dos testes locais, que usam `.next-e2e`; produção continua em `.next`.
+RLS e privilégios protegem projetos, acompanhamento, histórico, sessões, contratos e lançamentos. Visitantes não leem essas tabelas; outra conta autenticada recebe zero linhas. Escrita direta é negada inclusive ao produtor; RPCs exigem o único UUID autorizado, validam entradas e usam search_path vazio. Schema privado não é exposto. As operações públicas do formulário não acessam dados comerciais/financeiros ou agenda. Nenhuma chave administrativa fica no navegador.
 
-## 5. Limites gratuitos e continuidade
+Em Contatos → Exportar, JSON **v3** inclui `projects`, `contact_tracking`, `contact_history`, `producer_sessions`, `project_contracts`, `contract_history`, `finance_entries`, com versão, horário, fuso e `backup_scope: application_records_only`. CSV preserva respostas dos pedidos e neutraliza fórmulas. Todas as coleções são paginadas; falha impede baixar arquivo incompleto.
 
-Referências oficiais consultadas em **14/10/2026**; verificar novamente antes de publicar, pois planos podem mudar:
+Exportação não é snapshot transacional e **não substitui backup completo de banco/Auth**. Não contém usuários do Auth nem segredos de retomada. Evite exportar durante muitas alterações. Restauração é administrativa e deve ser validada em projeto separado. Exclusão administrativa de projeto remove dados associados por cascade; confira sessões e financeiro e faça backup antes de qualquer exclusão.
 
-- [Netlify Free](https://www.netlify.com/pricing/): 300 créditos/mês. [Documentação de créditos](https://docs.netlify.com/manage/accounts-and-billing/billing/billing-for-credit-based-plans/credit-based-pricing-plans/): deploys de produção, tráfego e computação compartilham o limite. Ao esgotar, o site pode ser pausado até o próximo ciclo. Contas antigas podem ter limites legados diferentes. Use Free e confira o consumo no painel; sem garantia de disponibilidade contínua ao exceder cotas.
-- [Supabase Free](https://supabase.com/pricing): banco de 500 MB por projeto; monitore espaço e tráfego no Dashboard. [Pausa por inatividade](https://supabase.com/docs/guides/platform/free-project-pausing): projetos com baixa atividade por sete dias podem ser pausados. Restaure pelo Dashboard; enquanto indisponível, o formulário informa falha e não confirma sucesso.
-- [Next.js no Netlify](https://docs.netlify.com/build/frameworks/framework-setup-guides/nextjs/overview/): suporte com adaptador OpenNext. O MVP usa páginas estáticas e consultas diretas ao Supabase, reduzindo funções e computação no Netlify. Não armazena áudio nem faz upload; apenas links e texto.
+Guarde arquivos fora do repositório, em diretório protegido, preferencialmente com cópia criptografada. `.gitignore` exclui `.env*` (exceto exemplo), exports, backups, CSV, dumps, logs, builds e resultados de teste. JSON de clientes deve ficar somente em diretórios ignorados, nunca junto do código. Não versionar credenciais.
 
-Operar dentro das cotas gratuitas dispensa mensalidade de infraestrutura, mas não representa capacidade ilimitada ou SLA. Não use tráfego artificial para contornar pausa. A RPC pública de captação pode receber spam; mantenha monitoramento do banco/uso e, se necessário, acrescente proteção gratuita contra abuso em etapa posterior. IDs aleatórios e RLS protegem contatos, mas não limitam volume de novos pedidos.
+## Netlify Free e limites
 
-## 6. Backup e dados pessoais
+No Netlify Free, importe repositório com `package-lock.json`. `netlify.toml` usa `npm run build`, `.next` e Node 22; adaptador Next.js/OpenNext é detectado. Cadastre somente as quatro variáveis públicas também no escopo Builds. Escolha subdomínio gratuito `nome-do-site.netlify.app`. Mudanças em NEXT_PUBLIC exigem rebuild. Não configurar MIXBYNAM_E2E na hospedagem; `.next-e2e` é exclusivo dos testes. Não habilitar Netlify Forms, recarga ou teste de plano pago.
 
-No painel, use **Backup JSON** antes de mudanças e periodicamente. O formato **v2** contém `format`, `version`, `exported_at`, `time_zone`, `backup_scope: application_records_only` e coleções `projects`, `contact_tracking`, `contact_history`, `producer_sessions`. Inclui IDs, respostas, datas, progresso, autorização, notas comerciais e sessões; CSV mantém apenas as respostas dos pedidos. A exportação pagina todas as coleções e só baixa o arquivo após todas as consultas terem sucesso; falha em uma tabela impede baixar um JSON incompleto. Não disponibiliza endpoint público. Não é snapshot transacional: evite exportar durante muitas alterações e não trate o arquivo como backup completo do banco/Auth.
+Referências de limites consultadas na configuração inicial em 14/10/2026; verificar novamente antes da publicação:
 
-Guarde em diretório protegido fora do projeto, com controle de acesso e, preferencialmente, cópia criptografada. `.gitignore` exclui `.env*` (exceto exemplo), `exports/`, `backups/`, CSV, dumps, logs e resultados de testes. Arquivos JSON de clientes devem ficar em `exports/` ou `backups/`, nunca ao lado dos arquivos de código. Confira os arquivos antes de um commit. Nunca incluir credenciais/exportações no repositório.
+- [Netlify Free](https://www.netlify.com/pricing/): 300 créditos/mês compartilhados entre deploy, tráfego e computação; pode pausar ao esgotar. Contas legadas podem ter outro limite. [Créditos](https://docs.netlify.com/manage/accounts-and-billing/billing/billing-for-credit-based-plans/credit-based-pricing-plans/).
+- [Supabase Free](https://supabase.com/pricing): banco de 500 MB. Projetos de baixa atividade podem pausar após sete dias. [Pausa](https://supabase.com/docs/guides/platform/free-project-pausing). Monitorar quotas pelo Dashboard, sem tráfego artificial.
+- [Next.js no Netlify](https://docs.netlify.com/build/frameworks/framework-setup-guides/nextjs/overview/). Páginas são estáticas; dados vêm do Supabase. Arquivos musicais continuam externos; não há upload.
 
-O JSON não contém chaves secretas de retomada ou usuários do Auth. Para recuperação completa, faça também backup administrativo das tabelas e Auth pelas ferramentas do Supabase/PostgreSQL, sem colocar dumps no repositório. A importação automática pelo painel não faz parte desta etapa; a restauração deve ser administrativa e validada em projeto separado. Defina retenção dos contatos e atenda pedidos de exclusão pelo responsável do banco. Exemplo de exclusão administrativa, sempre conferindo o ID:
+Nenhuma mensalidade de infraestrutura é necessária dentro das quotas, sem promessa de capacidade ilimitada/SLA. Publicação e validação remota desta versão permanecem pendentes; configuração local não autoriza testes em produção.
 
-```sql
-delete from public.projects where public_id = 'ID-PUBLICO-CONFERIDO'::uuid;
-```
-
-A chave privada, acompanhamento, histórico e sessões associadas são removidos por cascade. Confira o pedido e suas sessões antes da exclusão administrativa. O painel não oferece exclusão; cancelar sessão mantém seu registro.
-
-## 7. Verificação
+## Testes e medição
 
 ```sh
 npm run typecheck
 npm test
+npm run test:e2e
+npm run test:e2e:producer
 npm run build
 ```
 
-`npm test` preserva os testes anteriores e executa as migrações reais em PostgreSQL isolado (PGlite). Cobre formulário, acompanhamento, RLS, limite exato de 24h, histórico/retries, próxima ação, atividade separada do artista/produtor, Não contatar, agenda, sobreposição, cancelamento, consecutividade, versão de edição, fuso e backup v2. PGlite serializa chamadas: o teste `Promise.all` verifica a constraint em chamadas assíncronas, mas **não comprova concorrência entre duas conexões PostgreSQL reais**. Essa verificação está no teste externo. O banco isolado existe somente nos testes; a aplicação não tem fallback local.
+Windows usa Edge instalado; em outro ambiente, `npx playwright install chromium` ou PLAYWRIGHT_CHANNEL adequado. Execute as suítes de navegador em sequência: porta 3100 e `.next-e2e`. Testes antigos foram preservados, com seletores ajustados aos novos textos/menus.
 
-Teste de interface sem Supabase configurado:
+PGlite executa migrações reais, mas serializa transações. Promise.all local não prova duas conexões PostgreSQL reais. Auth/HTTP dos testes privados são dublês, domínio .invalid; chamadas a domínios reais Supabase são bloqueadas pela fixture. Isso não comprova Auth/PostgREST remoto.
 
-```sh
-# Windows usa Edge instalado. Linux/macOS: instalar Chromium para Playwright.
-npx playwright install chromium
-npm run test:e2e
-npm run test:e2e:producer
-```
+A medição `test:measure` usa **build de produção local**, backend isolado e cenários idênticos. No PowerShell, configure temporariamente as variáveis públicas para domínio/chave de teste (.invalid / sb_publishable_TEST_ONLY), faça build e rode `npm run test:measure`. Use MIXBYNAM_MEASUREMENT_LABEL para nomear resultado em `.tools/measurements`. Não alterar `.env.local`; ao terminar remova essas variáveis do terminal ou abra outro terminal e refaça build com a configuração normal. Nunca executar teste sobre produção. Resultados medidos estão em VERIFICACAO.md; bytes são corpos JSON, não tráfego comprimido com cabeçalhos. Não foi medida conversão de visitantes ou latência real do Supabase.
 
-No Windows com Edge, pule o download de Chromium. Pode definir `PLAYWRIGHT_CHANNEL=chrome` ou `msedge` para usar outro navegador instalado. Execute as duas suítes em sequência, não ao mesmo tempo: ambas usam porta 3100 e diretório `.next-e2e` ignorado. Isso evita interromper uma prévia em `.next`/porta 3000.
+### Integração remota separada
 
-`test:e2e` preserva os três testes do formulário, com variáveis Supabase vazias: layout em 320/390/1440 px, validação, erro de configuração e retry sem confirmação falsa. `test:e2e:producer` usa um dublê de Auth/HTTP limitado aos testes, com domínio `.invalid`; as RPCs executam as **migrações reais no PostgreSQL isolado**. Testa atendimento manual, link WhatsApp sem registro automático, Não contatar/fila, download JSON v2, agenda móvel, conflito preservando respostas, sessões consecutivas, edição e cancelamento. Não valida Supabase Auth remoto, transporte PostgREST real ou Netlify. Fixtures não são rotas da aplicação nem persistência de produção. Resultados e backups fictícios dos testes ficam em diretórios ignorados pelo Git.
-
-### Teste de integração externa
-
-Use **outro projeto Supabase Free de teste**, aplique **001 → 002 → 003**, crie produtor e outro usuário (Auto Confirm) e configure o primeiro na tabela privada. Copie `.env.example` para `.env.test.local`, preencha URL/chave e credenciais **dessas contas de teste** e defina `TEST_CONFIRM_ISOLATED_PROJECT=yes`. O teste recusa o mesmo hostname configurado em `.env.local`, verifica autorização das duas contas antes de criar registros e não imprime senhas/chaves.
+Crie outro Supabase Free, aplique 001→005, crie produtor e outra conta confirmados e autorize somente o produtor. Preencha `.env.test.local` com URL/chave e credenciais **de teste**, com TEST_CONFIRM_ISOLATED_PROJECT=yes. O teste recusa hostname do `.env.local` e verifica autorização antes de escrever.
 
 ```sh
 npm run test:integration
 ```
 
-O teste chama a API real, dispara oito salvamentos concorrentes da primeira etapa e confere um registro. Também testa acompanhamento/histórico, acesso direto às tabelas/RPCs e duas conexões autenticadas criando sessões conflitantes em paralelo: uma precisa salvar, outra receber `23P01`. Depois cancela, reutiliza o horário e salva uma sessão consecutiva. Não usa chave de serviço nem faz exclusão automática. Os UUIDs dos projetos de teste são exibidos para exclusão administrativa no SQL Editor; o cascade remove seus dados de acompanhamento e sessões. As contas da aplicação não recebem permissão de DELETE.
+A suíte cobre API, concorrência de salvamento/agenda e duas conexões criando recebimentos ou estornos concorrentes, com limites no banco. Não usa service_role nem exclui automaticamente. UUIDs dos projetos fictícios são apresentados para limpeza administrativa, somente no projeto de teste. Sem ambiente dedicado configurado, permanece pendente.
 
-Sem projeto/credenciais **de teste** configurados, esta integração permanece pendente. Consulte [VERIFICACAO.md](VERIFICACAO.md) para resultados efetivamente executados.
+## Roteiro manual de aceite em projeto de teste
 
-### Roteiro manual de aceite em projeto de teste
+1. Aplicar migrações, criar master e outra conta. Conferir bloqueio no painel e chamadas diretas às tabelas/RPCs com visitante/outro usuário.
+2. No celular 320/390 e desktop, preencher etapas, voltar, provocar falha e tentar novamente. Confirmar um único registro e confirmação somente após sucesso. Resumo/ID ficam acessíveis; WhatsApp não envia automaticamente.
+3. Conferir incompleto recente fora da recuperação; apenas no teste, envelhecer updated_at para 24h. Alterar atendimento sem mudar relógio do artista. Fechado/Perdido/Não contatar saem da recuperação mantendo histórico.
+4. Abrir WhatsApp e registrar nota não comprovam contato. Confirmar manualmente e consultar histórico paginado. Formulário concluído é separado de fechamento/venda/produção.
+5. Agenda mensal: fevereiro 28/29, meses de 30/31, dezembro/janeiro e sessão entre dias. Escolher dia, editar, cancelar; 10h–11h/11h–12h aceitos, 10h30–11h30 rejeitado. Validar concorrência e versão antiga em duas conexões.
+6. Contrato 100,01 com data explícita, recebimento 33,33 e estorno 0,33: líquido 33,00, saldo 67,01. Não preencher preço a partir do orçamento. Provar que fechado/concluído não gera pagamento.
+7. Testar recebimento excessivo, estorno excessivo, redução do contrato abaixo do recebido, retries e concorrência entre conexões. Conferir histórico e motivos, inclusive correções de data/forma por estorno e novo registro.
+8. Mês em Brasília: testar 02:59:59Z e 03:00:00Z no primeiro dia de mês sem horário de verão. Conferir vencido com data anterior a hoje, sem considerar vencimento hoje. Ver significado de cada indicador.
+9. Testar carregamento, vazio e falha; falha não mostra zero no lugar do resultado. Renovação de token e alternância de abas preservam rascunhos. Verificar TTL, atualização manual, invalidação e limpeza após logout/troca de usuário. Não anunciar tempo real.
+10. Exportar JSON v3, conferir as sete coleções, relações e lançamentos. Guardar fora do Git. Após aceite remoto, publicar no Netlify Free e testar endereço público.
 
-1. Aplicar as três migrações, criar/autorizar produtor e entrar em `/produtor`. Conta não autorizada deve ser bloqueada; repetir também chamadas diretas às tabelas/RPCs com chave pública e token dessa conta.
-2. Salvar a etapa 1 de um pedido e conferir contato/autorização no painel. Incompleto recém-criado deve ficar fora de Retomar contato, desde que não tenha retorno vencido. Retomar/revisar formulário e repetir salvamento devem preservar um registro.
-3. Para verificar 24h sem esperar, **somente no projeto de teste**, ajustar `projects.updated_at` de um UUID conferido para `now() - interval '24 hours'`. Atualizar fila; deve exibir o texto de inatividade. Registrar nota/mudar comercial e conferir que `projects.updated_at` não mudou. Avançar o formulário como artista deve atualizar esse relógio.
-4. Definir próxima ação vencida; deve entrar na fila. Marcar Não contatar; deve sair, com WhatsApp e contato manual bloqueados. Reverter para Novo e conferir o retorno à fila.
-5. Concluir outro pedido sem atendimento; deve entrar na fila. Abrir WhatsApp e registrar nota não devem contar como contato. Confirmar manualmente contato e consultar histórico/data; sem outra pendência, deve sair da fila. Conferir fuso e próxima ação preservada.
-6. Agenda: criar sessão 10h–11h. Outra 10h30–11h30 deve falhar; 11h–12h deve salvar. Editar tipo/status/observações e conferir persistência após recarregar. Cancelar 10h–11h, reservar novamente e conferir horário liberado. Reativar a cancelada deve falhar se o horário foi ocupado.
-7. Em duas janelas/conexões, tentar criar sessões conflitantes ao mesmo tempo: uma salva e a outra recebe conflito. Repetir clique/retry na mesma criação não deve duplicar. Edição com versão antiga precisa pedir recarregamento.
-8. Conferir agenda diária e semana de segunda a domingo em celular, incluindo sessão atravessando meia-noite. O dispositivo em outro fuso deve continuar exibindo horários de Brasília.
-9. Baixar JSON v2 e conferir as quatro coleções, IDs relacionados e histórico; CSV deve manter respostas dos pedidos. Retirar acesso a uma coleção no ambiente de teste deve impedir exportação incompleta. Guardar fora do repositório.
-
-## Próximas etapas
-
-1. Implementado: formulário, acompanhamento/recuperação de contatos, histórico, acesso privado, backup v2 e agenda manual.
-2. Próxima implementação: financeiro com conferência e registro manual de pagamentos, sem gateway.
-3. Próxima implementação: guardar links de entregas externas, sem upload de áudio.
-
-As próximas etapas devem reutilizar IDs, contatos e políticas privadas existentes. Agendamento é exclusivo do produtor; nenhum pagamento, envio automático ou entrega de áudio é realizado pelo formulário público.
+Links de entrega de áudio continuam para próxima implementação, sempre externos. Não há integração paga, gateway ou automação de mensagens.

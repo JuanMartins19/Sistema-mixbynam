@@ -1,0 +1,9 @@
+Planos locais PGlite, fixture de 2.000 lançamentos de 1 centavo. Não são planos ou tempos do Supabase remoto.
+select sum(amount_cents) from public.finance_entries where occurred_at>=timestamptz '2020-02-01 03:00Z' and occurred_at<timestamptz '2020-03-01 03:00Z'
+Aggregate  (cost=8.93..8.94 rows=1 width=32)
+  ->  Index Scan using finance_entries_period_idx on finance_entries  (cost=0.28..8.86 rows=29 width=8)
+        Index Cond: ((occurred_at >= '2020-02-01 00:00:00-03'::timestamp with time zone) AND (occurred_at < '2020-03-01 00:00:00-03'::timestamp with time zone))
+select sum(amount_cents) from public.finance_entries where refund_of='00000000-0000-0000-0000-000000000001'::uuid
+Aggregate  (cost=8.15..8.16 rows=1 width=32)
+  ->  Index Scan using finance_entries_refund_idx on finance_entries  (cost=0.12..8.14 rows=1 width=8)
+        Index Cond: (refund_of = '00000000-0000-0000-0000-000000000001'::uuid)
