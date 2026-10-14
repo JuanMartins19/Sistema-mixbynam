@@ -64,3 +64,9 @@ Nesta atualização não foram feitas chamadas de teste ou escritas no Supabase 
 Antes de atualizar o ambiente remoto existente, aplicar **somente 002 → 003** se 001 já estiver aplicada; nunca reaplicar 001. Validar login real, RLS/GRANTs na API remota, migrações, concorrência entre conexões, exportações e publicação Netlify Free em ambiente de teste. Nenhum sucesso externo desta versão é afirmado.
 
 O roteiro manual completo está em [README.md — Roteiro manual de aceite](README.md#roteiro-manual-de-aceite-em-projeto-de-teste). Inclui recuperação de contato, inatividade sem intervenção do produtor, atendimento manual, agenda/conflitos, contas não autorizadas e backup. Financeiro e links de entrega continuam para a próxima implementação.
+
+## Configuração administrativa do produtor master
+
+Adicionado `supabase/setup/configure_master.sql`, com placeholder de e-mail e sem senha. Uma verificação adicional executada com `tsx --test tests/master-setup.test.ts` passou: conta inexistente ou não confirmada é rejeitada; conta confirmada substitui o UUID anterior e mantém exatamente um produtor autorizado. Esse teste usou PostgreSQL isolado; a suíte de 39 testes acima não foi repetida nesta alteração administrativa.
+
+Na tentativa de login remoto solicitada pelo usuário, Supabase Auth retornou `invalid_credentials` (HTTP 400). Isso não identifica, por si só, se a conta é inexistente ou a senha é diferente. Não foi criado usuário nem alterada autorização no banco remoto. Credenciais foram fornecidas ao processo apenas por stdin protegido, sem gravação em arquivo/repositório ou exposição no resultado. A criação da conta confirmada e execução do setup como postgres no Dashboard permanecem necessárias para ativar o master.

@@ -65,6 +65,8 @@ on conflict (singleton) do update set user_id = excluded.user_id;
 
 Só esse UUID pode consultar pedidos. Uma outra conta, mesmo autenticada, recebe zero registros. Para trocar produtor, repita o comando com o novo UUID. Não conceda permissões pelo e-mail, telefone ou metadata editável do usuário.
 
+Esse único produtor é o **usuário master da aplicação**, com acesso aos contatos, acompanhamento, agenda e exportações. Isso não concede papel administrativo do Supabase nem ignora as políticas do banco. Para configurar pelo e-mail da conta previamente criada, use [configure_master.sql](supabase/setup/configure_master.sql) no SQL Editor como postgres, substituindo apenas `EMAIL-DO-PRODUTOR`. O script exige uma conta única com e-mail confirmado e configura seu UUID em `private.producer`; substitui qualquer produtor anteriormente configurado e retorna a conta autorizada para conferência. Não armazene senha em SQL, código ou `.env.local`. Mantenha cadastro público desabilitado em Authentication.
+
 Para recuperar acesso, o responsável pelo Supabase deve atualizar a senha no Dashboard. Este MVP não envia recuperação automática por e-mail. Configure o Site URL em Authentication → URL Configuration para o endereço definitivo do Netlify; o login por senha não usa redirecionamento.
 
 ### Acompanhamento e recuperação
