@@ -158,6 +158,10 @@ Guarde arquivos fora do repositório, em diretório protegido, preferencialmente
 
 No Netlify Free, importe repositório com `package-lock.json`. `netlify.toml` usa `npm run build`, `.next` e Node 22; adaptador Next.js/OpenNext é detectado. Cadastre somente as quatro variáveis públicas também no escopo Builds. Escolha subdomínio gratuito `nome-do-site.netlify.app`. Mudanças em NEXT_PUBLIC exigem rebuild. Não configurar MIXBYNAM_E2E na hospedagem; `.next-e2e` é exclusivo dos testes. Não habilitar Netlify Forms, recarga ou teste de plano pago.
 
+Se a última etapa mostrar “O atendimento online está indisponível no momento. Suas respostas não foram enviadas”, confira no Netlify: **Project configuration → Environment variables**. Cadastre `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY` com os mesmos valores públicos do `.env.local`, disponíveis para **Production / Builds**. A segunda variável aceita a chave `anon` ou `publishable`, nunca `service_role` ou `secret`. Cadastre também `NEXT_PUBLIC_PRODUCER_WHATSAPP` e `NEXT_PUBLIC_PRODUCER_NAME` para o contato após o envio. Depois abra **Deploys → Trigger deploy → Clear cache and deploy site**. Apenas salvar variáveis não atualiza um site já compilado. Não publique o `.env.local` no Git.
+
+Antes do build, `scripts/check-netlify-env.mjs` impede um novo deploy com a conexão ausente, de exemplo ou com uma chave privilegiada. Não imprime valores nem carrega configurações locais; `npm run build` e os testes locais continuam disponíveis separadamente.
+
 Referências de limites consultadas na configuração inicial em 14/10/2026; verificar novamente antes da publicação:
 
 - [Netlify Free](https://www.netlify.com/pricing/): 300 créditos/mês compartilhados entre deploy, tráfego e computação; pode pausar ao esgotar. Contas legadas podem ter outro limite. [Créditos](https://docs.netlify.com/manage/accounts-and-billing/billing/billing-for-credit-based-plans/credit-based-pricing-plans/).

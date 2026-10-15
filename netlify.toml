@@ -1,5 +1,5 @@
 [build]
-  command = "npm run build"
+  command = "node scripts/check-netlify-env.mjs && npm run build"
   publish = ".next"
 [build.environment]
   NODE_VERSION = "22"
